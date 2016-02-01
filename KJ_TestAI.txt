@@ -1,0 +1,307 @@
+function KJ_TestAI_init()--10010911
+	-- 技能表
+	local _hostRole = ai_CreateOwner( OwnerID() );
+	_hostRole:SetModeEx( EM_SetModeType_DisableFaceTarget, false );
+    	_hostRole:SetModeEx( EM_SetModeType_DiableAIProc, false);
+
+	local ai_EventInfos = {};
+
+	ai_EventInfos["追逐移動"] =
+	{
+		OnInit = function(owner,data,group,cooldown)--狀態起始時會執行 data  指得是ai_EventInfos["追逐移動"]
+			data.group = group;
+			data.cooldown = cooldown or 0;
+		end,
+
+		OnCelPriority = function(owner,data)--狀態判斷   RANK  分數越高 (本段在全圈中不斷被執行) 則觸發 OnExecute
+					
+			data.target = owner.hateList[1];
+			if( not data.target  )then
+				return 0;
+			end
+
+			if ( GetDistanceEX( owner:GUID(), data.target:GUID() ) > 25 ) then
+				return 100;
+			else
+				return 0;
+			end
+			return 0;
+		end,
+
+		OnExecute = function(owner,data) -- 實際執行的動作
+		-- lock on target			
+			if( not data.target )then
+				return 0;
+			end			
+		-- if too far away, rotation and move closer
+			owner:Yell( "Moving" );
+			ai_RotateToTarget( owner, data.target );
+
+			SetAttack( owner:GUID(), data.target:GUID() );
+			ai_MoveToTarget( owner, 15 );
+		
+		end
+	}--追逐移動
+
+
+	ai_EventInfos["橫劈"] =
+	{
+		OnInit = function(owner,data,group,cooldown)--狀態起始時會執行 data  指得是ai_EventInfos["橫劈"]
+			data.group = group;
+			data.cooldown = cooldown or 0;
+		end,
+
+		OnCelPriority = function(owner,data)--狀態判斷   RANK  分數越高 (本段在全圈中不斷被執行) 則觸發 OnExecute
+					
+			data.target = owner.hateList[1];
+			
+			if( not data.target  )then
+				return 0;
+			end
+
+			if ( GetDistanceEX( owner:GUID(), data.target:GUID() ) < 30 ) then
+				return 100;
+			else
+				return 0;
+			end
+			return 0;
+		end,
+
+		OnExecute = function(owner,data) -- 實際執行的動作			
+			if( not data.target )then
+				return 0;
+			end		
+			
+			owner:Yell( " Single Attack" );					
+			ai_RotateToTarget( owner, data.target );
+			SetAttack( owner:GUID(), data.target:GUID() );
+			CastSpell( owner:GUID(), data.target:GUID() , 31008840 , 50 );	
+			ai_WaitSpellEnd( owner, 5 );	
+		end
+	}--橫劈
+
+	
+	ai_EventInfos["連劈"] =
+	{
+		OnInit = function(owner,data,group,cooldown)--狀態起始時會執行 data  指得是ai_EventInfos["連劈"]
+			data.group = group;
+			data.cooldown = cooldown or 0;
+		end,
+
+		OnCelPriority = function(owner,data)--狀態判斷   RANK  分數越高 (本段在全圈中不斷被執行) 則觸發 OnExecute
+			
+			data.target = owner.hateList[1];
+			if( not data.target  )then
+				return 0;
+			end
+
+			if ( GetDistanceEX( owner:GUID(), data.target:GUID() ) < 30 ) then
+				return 100;
+			else
+				return 0;
+			end
+			return 0;
+		end,
+
+		OnExecute = function(owner,data) -- 實際執行的動作			
+			if( not data.target )then
+				return 0;
+			end		
+			owner:Yell( " Dual Attack" );				
+			ai_RotateToTarget( owner, data.target );
+			SetAttack( owner:GUID(), data.target:GUID() );
+			CastSpell( owner:GUID(), data.target:GUID() , 31008976 , 50 );--連劈
+			ai_WaitSpellEnd( owner, 5 );		
+		end
+	}--連劈
+
+	
+	ai_EventInfos["反擊"] =
+	{
+		OnInit = function(owner,data,group,cooldown)--狀態起始時會執行 data  指得是ai_EventInfos["反擊"]
+			data.group = group;
+			data.cooldown = cooldown or 0;
+		end,
+
+		OnCelPriority = function(owner,data)--狀態判斷   RANK  分數越高 (本段在全圈中不斷被執行) 則觸發 OnExecute
+			
+			data.target = owner.hateList[1];
+			
+			if( not data.target  )then
+				return 0;
+			end
+
+			if ( GetDistanceEX( owner:GUID(), data.target:GUID() ) < 20 ) then
+				return 100;
+			else
+				return 0;
+			end
+			return 0;
+		end,
+
+		OnExecute = function(owner,data) -- 實際執行的動作			
+			if( not data.target )then
+				return 0;
+			end			
+			owner:Yell( " Rebel" );			
+			ai_RotateToTarget( owner, data.target );
+			SetAttack( owner:GUID(), data.target:GUID() );
+			CastSpell( owner:GUID(), data.target:GUID() , 31008975 , 50 );--反擊	
+			ai_WaitSpellEnd( owner, 5 );	
+		end
+	}--連劈
+
+
+	
+	KJ_TestAI_onBattle = function()--10010911
+	--	local _hostRole = ai_CreateOwner( OwnerID() );
+		_hostRole:SetModeEx( EM_SetModeType_DiableAIProc , true );
+		ai_ClearEvent( _hostRole );	
+
+		_hostRole:Yell( " Battle Mode is On" );
+
+		local mainProc = function( _inputHostRole )
+				ai_InsertEventEX( _inputHostRole , "追逐移動" , ai_EventInfos["追逐移動"] ,  "Move" , 0 );
+				ai_InsertEventEX( _inputHostRole , "橫劈" , ai_EventInfos["橫劈"] , "Melee" ,  10 );
+				ai_InsertEventEX( _inputHostRole , "連劈" , ai_EventInfos["連劈"] , "Melee" ,  1 );
+				ai_InsertEventEX( _inputHostRole , "反擊" , ai_EventInfos["反擊"] , "Melee" ,  1 );
+			end
+
+		ai_MYRun_Test( _hostRole , mainProc );
+		--ai_Run( _hostRole , mainProc );
+		--ai_Run_Virgin( _hostRole , mainProc );
+
+		--here it is out of loop
+		_hostRole:Yell( " Battle Mode is Off " );
+		_hostRole:SetModeEx( EM_SetModeType_DisableFaceTarget, false );
+    		_hostRole:SetModeEx( EM_SetModeType_DiableAIProc, false);
+	end--function KJ_TestAI_onBattle
+	
+	
+end--function KJ_TestAI_init
+
+
+
+
+--AI主迴圈測試用
+-- 1. 王會Yell現在施放的EventName
+-- 2. 王會自己SetAttack，仇恨最高的目標
+-- 3. 發完招，才開始計算cooldown
+-- 4. 同樣RANK值則算機率
+
+-- ※ 下面有ai_RunEX(不Yell)
+function ai_Run_Virgin(owner,mainProc)
+	sleep( 1 );
+	local _availableEventList = {};--full of events   --Aris   130809
+	while true do 
+		-- owner:Yell( "tarID: "..GetRoleINT64( owner:GUID(), EM_SetGUIDEventType_AttackTargetGUID ) );
+		-- owner:Yell( "AI_HateCount: "..#owner.hateList );
+		-- owner:Yell( "list: "..HateListCount( owner:GUID() ) ); 
+		_availableEventList = {};
+
+		if( not owner:IsAttack() ) and ( #owner.hateList == 0 ) then
+			DebugMsg( 0, "AI battle end." );
+			return;
+		end
+		
+		if( owner:IsCanCast() )then			
+			local tickCount = GetTickCount();
+			owner.elapsedTime = (tickCount-owner.lastTickCount)/1000;
+			owner.lastTickCount = tickCount;
+			
+			--取得仇恨列表
+			ai_UpdateHateListEX(owner);
+			if ( #owner.hateList > 0 ) then	-- 指定攻擊目標(仇恨最高)
+				for i = 1, #owner.hateList do
+					if ( ai_SetAttack( owner, owner.hateList[i] ) ) then
+						break;
+					end
+				end
+			end
+	
+			if( mainProc ) then
+				mainProc(owner);
+			end
+
+			local baseScore = 0;
+			local baseEvent = nil;
+			local baseEventName = nil;
+			local nowScore;
+			local nowEvent;
+			
+			for i,v in pairs( owner.events ) do
+				nowEvent = v;
+				nowEvent._currentScore = 0;
+				if( nowEvent.cooldownTimer and nowEvent.cooldownTimer > owner.elapsedTime )then
+					nowEvent.cooldownTimer = nowEvent.cooldownTimer - owner.elapsedTime;
+				else
+					nowScore = nowEvent._event.OnCelPriority( owner, nowEvent );
+
+					if ( nowScore > 0 ) then
+						nowEvent._currentScore = nowScore;
+						table.insert( _availableEventList , nowEvent );
+						DebugMsg( 0, " Candidate skill "..i );
+					end
+--					if( nowScore > baseScore )then
+--						baseScore = nowScore;
+--						baseEvent = nowEvent;
+--						baseEventName = i;
+--					end
+				end
+			end	
+			
+			if( #_availableEventList > 0 )then
+				baseEvent = RandByRank( _availableEventList );
+				baseScore = baseEvent._currentScore;
+			end
+
+			if( baseEvent )then
+			--	Yell( owner:GUID(), baseEventName );
+				baseEvent._event.OnExecute( owner, baseEvent );	
+				if( baseEvent.cooldown )then
+					local basegroup = baseEvent.group;
+					for i,v in pairs( owner.events ) do
+						local group = v.group;
+						if ( group == basegroup ) then
+							local castTime = (GetTickCount()-owner.lastTickCount)/1000;
+							v.cooldownTimer = baseEvent.cooldown + castTime;
+						end 
+					end
+				end
+			end	
+		end
+		
+	
+		sleep(1);
+	end--while
+end
+
+
+
+
+
+
+function RandByRank( _inputAvailableEventList )
+	DebugMsg( 0, "  RandByRank  "..ToString( #_inputAvailableEventList ).."   Selected !!" );
+	local _targetEvent--an Event Object
+	local _rankList = {};
+	local _totalRankScore = 0;
+	for _eventIndex , _currentEvent in pairs( _inputAvailableEventList ) do
+		_rankList[ _eventIndex ]._event = _currentEvent;
+		_rankList[ _eventIndex ]._lowerBound =  _totalRankScore;
+		_totalRankScore = _totalRankScore + _currentEvent._currentScore;
+		_rankList[ _eventIndex ]._higherBound =  _totalRankScore;
+	end
+	
+	local _randomSeed = RandRange( 1 , _totalRankScore );
+
+	for _eventRankIndex , _currentEventRank in pairs( _rankList ) do
+		if ( _randomSeed > _currentEventRank._lowerBound and _randomSeed < _currentEventRank._higherBound ) then
+			_targetEvent = _currentEventRank._event;
+			DebugMsg( 0, "  :::  ".._eventRankIndex.."   Selected !!" );
+			break;
+		end
+	end
+
+	return _targetEvent;
+end

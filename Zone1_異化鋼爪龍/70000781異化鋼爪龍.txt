@@ -1,0 +1,660 @@
+function ai_70000781_EXMetalTriDra_Init()
+	local ai_EventInfos = {};
+
+	ai_EventInfos["剛爪龍火車"] =
+	{
+		OnInit = function(owner,data)
+			local diff = GetInstanceLv(OwnerID() );--取得玩家所在副本難度，簡單=0，正常=1，困難=2
+		
+			if diff <= 1 then
+				data.cooldown = 22;
+			elseif diff == 2 then
+				data.cooldown = 7;
+			end		
+		end,
+		OnCelPriority = function(owner,data)
+		
+			data.target = ai_SearchEnemy_Line( owner, 500, 100 );
+			if( not data.target )then
+				return 0;
+			end
+			
+			if( GetDistanceEX( owner:GUID(), data.target:GUID() ) < 60 )then
+				return 0;
+			end
+			
+			data.randvalue = rand(60)+40;
+			return data.randvalue;
+		end,
+		OnExecute = function(owner,data)
+		
+			--owner:Yell( "run begin" );	
+			
+			--Addbuff( OwnerID() , OwnerID() , 30000004 , 1 , 10 );
+			
+			local hitedList = {};
+
+			ai_RatateToTarget( owner, data.target, 0.5 );
+			
+			Addbuff( owner:GUID() , owner:GUID() , 30006344 , 1 , 60 );		----- 加速BUff
+			
+			--sleep(3)
+			if(ai_sleep(owner,3))then return; end
+		
+			local maxAngle = 15; --火車最大轉角
+			local isEnd = false;
+			
+			local x, y, z;
+			for i = 1 , 8 do
+				--owner:Yell( "run i = " .. i );	
+				local dist = GetDistanceEX( owner:GUID(), data.target:GUID() );
+				local x, y , z = Com_CelVector( owner:X(), 0,  owner:Z(),  data.target:X(), 0 , data.target:Z() );
+				local deltaDir = com_CalTargetDir( owner:GUID(), data.target:GUID() );
+				--owner:Yell( "run i = " .. i .. " dist = " .. dist .. " deltaDir = " .. deltaDir );	
+				if( i ~= 1 )then
+					if( deltaDir > 90 or deltaDir < -90 )then
+						deltaDir = 0;
+						isEnd = true;
+					elseif( deltaDir > maxAngle )then
+						deltaDir = maxAngle;
+					elseif( deltaDir < -maxAngle )then
+						deltaDir = -maxAngle;
+					end
+				end
+				
+				--owner:Yell( "run i = " .. i .. " deltaDir = " .. deltaDir );	
+				
+				local dir = owner:Dir() + deltaDir;
+				x, z = Com_DirToVector(dir);
+							
+				x = x * 90 + owner:X();
+				z = z * 90 + owner:Z();		
+				
+				y = data.target:Y() + 10;
+				Move( owner:GUID() , x , y , z );
+				
+
+				if(ai_sleep(owner,1))then return; end		
+				--打所有仇恨列表
+				for i,v in ipairs( owner.hateList ) do
+					
+					local guid = v:GUID();
+					if( not hitedList[guid] )then
+						local _dist = GetDistanceEX( owner:GUID(), guid );
+						if( _dist < 20 )then
+							Sys_CastSpell( owner:GUID(), data.target:GUID(), 31001284 , 1 );	
+							hitedList[guid] = 1;
+						end
+					end
+				end
+				
+				if( isEnd )then
+					break;
+				end
+			end
+			
+			--StopMove(  owner:GUID(), true )
+			CancelBuff( owner:GUID() , 30006344 );
+			
+			--owner:Yell( "run end" );	
+		end,
+	}
+
+	ai_EventInfos["剛爪龍尾巴"] =
+	{
+		OnInit = function(owner,data)
+			data.cooldown = 10;
+		end,
+		OnCelPriority = function(owner,data)
+
+			if( not owner.hateList[1] )then
+				return 0;
+			end
+			
+			local hitedList = {};
+					
+			for i,v in ipairs( owner.hateList ) do															---   判斷所有玩家是否在怪物背後
+				local guid = v:GUID();
+				if( not hitedList[guid] )then
+					local _dist = GetDistanceEX( owner:GUID(), guid );
+					if( _dist < 60 )then
+						local angle = com_CalTargetDir( owner:GUID(), owner.hateList[1]:GUID() )  -- 左右轉角度
+						if angle >= 135 and angle <= 225 then 												--  在屁股後面必出
+							
+							return 100;
+						end
+					end
+				end
+			end	
+			return 0;
+		end,
+		OnExecute = function(owner,data)
+			ai_CastSpell( owner:GUID(), owner:GUID(), 31002408, 10, 2 );
+			if(ai_sleep(owner,28))then return; end
+		end,
+	}
+
+	ai_EventInfos["剛爪龍左右閃"] =
+	{
+		OnInit = function(owner,data)
+			data.cooldown = 15;
+		end,
+		OnCelPriority = function(owner,data)
+
+			if( not owner.hateList[1] )then
+				return 0;
+			end
+			
+			data.randvalue = rand(30)+50;
+			return data.randvalue;
+		end,
+		OnExecute = function(owner,data)																-----------------  有機率左跳 或 右跳  跳完會有一個表演動作
+			local diff = GetInstanceLv(OwnerID() );--取得玩家所在副本難度，簡單=0，正常=1，困難=2
+
+			if BG_70000416_RandSkillValue(70,30) == true then
+				local x,y,z,dir = Lua_GetPositionByObj( owner:GUID(), 270 , 170 ); 
+				if CheckLine(owner:GUID(),x,y,z) == true then 
+					
+				elseif CheckLine(owner:GUID(),x,y,z) == false then 
+					return 0
+				end
+				ai_CastSpell( owner:GUID(), owner:GUID(), 31002415, 10, 2 );
+				if(ai_sleep(owner,28))then return; end
+				
+				if diff <= 1 then
+					PlayMotion(  owner:GUID(), 34000098 , 0 );
+					if(ai_sleep(owner,19))then return; end
+				end	
+			else
+				local x,y,z,dir = Lua_GetPositionByObj( owner:GUID(), 90 , 170 ); 
+				if CheckLine(owner:GUID(),x,y,z) == true then 
+					
+				elseif CheckLine(owner:GUID(),x,y,z) == false then 
+					return 0
+				end
+				ai_CastSpell( owner:GUID(), owner:GUID(), 31002416, 10, 2 );
+				if(ai_sleep(owner,28))then return; end
+
+				if diff <= 1 then
+					PlayMotion(  owner:GUID(), 34000098 , 0 );
+					if(ai_sleep(owner,19))then return; end
+				end	
+			end	
+		end,
+	}
+
+	ai_EventInfos["剛爪龍狂亂"] =
+	{
+		OnInit = function(owner,data)
+			data.cooldown = 5;
+		end,
+		OnCelPriority = function(owner,data)
+			
+			data.target = ai_SearchEnemy_Line(owner,500,60);
+			if( not data.target )then
+				return 0;
+			end
+			
+			if  (BG_70000416_RandSkillValue(100,35)) == true then   --------------  35% 隨機目標
+				local TarTemp = #owner.hateList;
+				local	Tar = Rand(TarTemp) + 1;
+				data.target = owner.hateList[Tar];
+			end 
+			
+			if( GetDistanceEX( owner:GUID(), data.target:GUID() ) < 50 )then
+				return 0;
+			end
+			
+			if( GetDistanceEX( owner:GUID(), data.target:GUID() ) > 150 )then
+				return 0;
+			end
+			
+			data.randvalue = rand(50)+30;
+			return data.randvalue;
+		end,
+		OnExecute = function(owner,data)
+			ai_RatateToTarget( owner, data.target, 0.7 );
+			
+			local check = ai_checkcollide(owner:GUID(),0,280)  ;        ---------                 打線檢查
+			if  check  == false then 								
+				return 0 ;
+			end
+			
+			ai_CastSpell( owner:GUID(), owner:GUID(), 31002412	, 10, 2 );
+			if(ai_sleep(owner,41))then return; end
+		end,
+	}
+
+	ai_EventInfos["剛爪龍衝撞"] =
+	{
+		OnInit = function(owner,data)
+			data.cooldown = 3;
+		end,
+		OnCelPriority = function(owner,data)
+			
+			data.target = ai_SearchEnemy_Line(owner,500,60);
+			if( not data.target )then
+				return 0;
+			end
+			
+			if  (BG_70000416_RandSkillValue(100,35)) == true then   --------------  35% 隨機目標
+				local TarTemp = #owner.hateList;
+				local	Tar = Rand(TarTemp) + 1;
+				data.target = owner.hateList[Tar];
+			end 
+			
+			if( GetDistanceEX( owner:GUID(), data.target:GUID() ) < 50 )then
+				return 0;
+			end
+			
+			data.randvalue = rand(50)+30;
+			return data.randvalue;
+		end,
+		OnExecute = function(owner,data)
+			ai_RatateToTarget( owner, data.target, 0.7 );
+			
+			local check = ai_checkcollide(owner:GUID(),0,310)  ;        ---------                 打線檢查
+			if  check  == false then 								
+				return 0 ;
+			end
+			
+			ai_CastSpell( owner:GUID(), owner:GUID(), 31002410	, 10, 2 );
+			if(ai_sleep(owner,22))then return; end	
+		end,
+	}
+
+	ai_EventInfos["剛爪龍致命"] =
+	{
+		OnInit = function(owner,data)
+			data.cooldown = 7;
+		end,
+		OnCelPriority = function(owner,data)
+
+			data.target = ai_SearchEnemy_Line(owner,500,60);
+			if( not data.target )then
+				return 0;
+			end
+			
+			if  (BG_70000416_RandSkillValue(100,35)) == true then   --------------  35% 隨機目標
+				local TarTemp = #owner.hateList;
+				local	Tar = Rand(TarTemp) + 1;
+				data.target = owner.hateList[Tar];
+			end 
+			
+			if( GetDistanceEX( owner:GUID(), data.target:GUID() ) < 20 )then
+				return 0;
+			end
+			
+			data.randvalue = rand(50)+30;
+			return data.randvalue;
+		end,
+		OnExecute = function(owner,data)
+			ai_RatateToTarget( owner, data.target, 0.7 );
+			
+			local check = ai_checkcollide(owner:GUID(),0,160)  ;        ---------                 打線檢查
+			if  check  == false then 								
+				return 0 ;
+			end
+			
+			local diff = GetInstanceLv(owner:GUID()) --取得玩家所在副本難度，簡單=0，正常=1，困難=2
+			if diff <= 1 then
+				ai_CastSpell( owner:GUID(), owner:GUID(), 31002407	, 10, 2 );
+				if(ai_sleep(owner,22))then return; end	
+			elseif diff == 2 then
+				ai_CastSpell( owner:GUID(), owner:GUID(), 31007505	, 10, 2 );
+				if(ai_sleep(owner,22))then return; end	
+				ai_CastSpell( owner:GUID(), owner:GUID(), 31002411	, 10, 2 );
+				if(ai_sleep(owner,46))then return; end	
+			end	
+		end,
+	}
+
+	ai_EventInfos["剛爪龍破壞"] =
+	{
+		OnInit = function(owner,data)
+
+		end,
+		OnCelPriority = function(owner,data)
+
+			return 200;
+		end,
+		OnExecute = function(owner,data)
+			PlayMotion(  owner:GUID(), 34000273 , 0 );
+			sleep(20);
+			local Register1 =  ReadRoleValue( OwnerID() , EM_RoleValue_Register+1 );
+			local hp =  ReadRoleValue( OwnerID() , EM_RoleValue_Fin_MaxHP );
+			--DebugMsg(0,Register1);
+			local diff = GetInstanceLv(owner:GUID() );--取得玩家所在副本難度，簡單=0，正常=1，困難=2
+			WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+2 , 5000);  ------------------------------------  破壞後 重寫腳步球體
+				if diff == 0 then
+				if Register1 == 1 or Register1 == 2 then
+
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+2 , hp/10); 
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+3 , hp/10); 
+				elseif Register1 == 3 then
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+2 , -5000);
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+3 , -5000); 	
+				end
+			elseif diff == 1 then 
+				if Register1 == 1 or Register1 == 2 then
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+2 , hp/10); 
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+3 , hp/10); 
+				elseif Register1 == 3 then
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+2 , -5000);            ---------------------  破壞超過三次以後  不在給玩家破壞			
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+3 , -5000); 	
+				end
+			elseif diff == 2 then 
+				if Register1 == 1 or Register1 == 2 then
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+2 , hp/10); 
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+3 , hp/10); 
+				elseif Register1 == 3 then
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+2 , -5000);
+					WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+3 , -5000); 	
+				end  
+			end
+			
+			ai_RemoveEvent( owner, "剛爪龍破壞" );
+		end,
+	}
+
+	aiEvent_DraJumpAttack = {                                 ------------------------                 剛爪龍用普通模式
+
+		OnInit = function(owner, data, skillID, cooldown, moveRange,  scoreBase, scoreRand,goblin)
+			data.skillID = skillID;
+			data.cooldown = cooldown;
+			data.moveRange = moveRange;
+			data.scoreBase = scoreBase;
+			data.scoreRand = scoreRand;
+		end,
+		OnCelPriority = function(owner,data,goblin)
+			
+			if( not owner.hateList[1] )then
+				return 0;
+			end
+			
+			local TarTemp = #owner.hateList;
+			local	Tar = Rand(TarTemp) + 1;
+			data.target = owner.hateList[Tar];
+			--data.target:Yell( "IM TARGET" );	
+			if( GetDistanceEX( owner:GUID(), data.target:GUID() ) > data.moveRange )then
+				return 0;
+			end		
+			
+			return data.scoreBase + rand(data.scoreRand);
+		end,
+		OnExecute = function(owner,data,goblin)	
+			--owner:Yell( "MeleeAttack");
+			local dist = GetDistanceEX( owner:GUID(), data.target:GUID() );
+			
+			--[[if( dist > 70 ) then
+				--Owner:Yell( angle );																	---  依靠角度 用跳躍移動接近玩家
+				local angle = com_CalTargetDir( owner:GUID(), data.target:GUID() )  -- 左右轉角度
+				--Owner:Yell( angle );
+				if angle >= 135 and angle <= 225 then 												--  在屁股後面必出
+					ai_CastSpell( owner:GUID(), owner:GUID(), 31002414, 10, 2 );
+					if(ai_sleep(owner,22))then return; end
+				elseif angle >= 45 and angle <= 135 then 
+					ai_CastSpell( owner:GUID(), owner:GUID(), 31002416, 10, 2 );
+					if(ai_sleep(owner,19))then return; end	 
+				elseif angle >= -45 and angle <= -135 then
+					ai_CastSpell( owner:GUID(), owner:GUID(), 31002415, 10, 2 );
+					if(ai_sleep(owner,19))then return; end	
+				else
+					ai_RatateToTarget( owner, data.target, 1 );		
+					ai_CastSpell( owner:GUID(), owner:GUID(), 31002413, 10, 2 );
+					if(ai_sleep(owner,27))then return; end
+				end		
+			end]]
+			
+			ai_RatateToTarget( owner, data.target, 0.7 );
+			
+			local dist = GetDistanceEX( owner:GUID(), data.target:GUID() );          -----------------  走路接近玩家
+			if( dist > 10 )then
+				ai_MoveToTarget( owner, 0 );
+			end
+			
+			if( owner:IsCanCast() )then
+				ai_CastSpell(owner:GUID(), owner:GUID(), data.skillID,10,2);
+			end
+			
+			local diff = GetInstanceLv(OwnerID() );--取得玩家所在副本難度，簡單=0，正常=1，困難=2
+			if diff == 1 then
+				sleep(10);
+			end
+			--owner:Yell( "MeleeAttack end");	
+		end,
+	}
+
+
+	function ai_70000781_EXMetalTriDra_Main()               							----------------------------------------主程式
+		WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 0 ); 
+		local owner = ai_CreateOwner( OwnerID() );
+		--owner:Yell( "ai_11000441_test" );	
+		local hp =  ReadRoleValue( OwnerID() , EM_RoleValue_Fin_MaxHP );
+		owner:SetModeEx( EM_SetModeType_DisableFaceTarget , true );
+		owner:SetModeEx( EM_SetModeType_DiableAIProc , true );	
+		WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+2 , hp/10); 
+		WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+3 , hp/10); 
+		
+		ai_ClearEvent( owner );
+		
+		owner.Register = -1;
+		
+		local mainProc = function( owner )															---        檢查用函式 每次都會執行
+			--owner:Yell( "flag" );	
+					
+			local Register1 =  ReadRoleValue( OwnerID() , EM_RoleValue_Register+1 );
+			local Target = GetRoleINT64( OwnerID() ,EM_SetGUIDEventType_AttackTargetGUID);
+			local job =  ReadRoleValue( Target , EM_RoleValue_JOB );
+			if( owner.Register ~= Register1 )then											--       CHECK王身上的暫存值是否有變化
+			
+				owner.Register = Register1;
+						
+				ai_ClearEvent( owner );
+				
+				--ai_ClearEvent( owner );
+			if( Register1 == 1 )then													---------------------------   腳步受傷1
+					ai_InsertEvent( owner, "剛爪龍破壞" ,ai_EventInfos["剛爪龍破壞"]);
+					ai_InsertEvent( owner, "剛爪龍尾巴" ,ai_EventInfos["剛爪龍尾巴"]);
+					ai_InsertEvent( owner, "剛爪龍狂亂" ,ai_EventInfos["剛爪龍狂亂"]); 
+					ai_InsertEvent( owner, "剛爪龍左右閃" ,ai_EventInfos["剛爪龍左右閃"]); 
+					ai_InsertEvent( owner, "剛爪龍致命" , ai_EventInfos["剛爪龍致命"] );
+					ai_InsertEvent( owner, "剛爪龍吼吼吼" , aiEvent_DraJumpAttack, 31002409, 8, 300, 40, 40  );
+					ai_InsertEvent( owner, "剛爪龍馬赫投擲" , aiEvent_DraJumpAttack, 31002411, 8, 300, 40, 40  );
+					ai_InsertEvent( owner, "剛爪龍爪擊" , aiEvent_DraJumpAttack, 31002406, 3, 300, 60, 0  );
+				elseif( Register1 == 2 )then										---------------------------   腳步受傷2
+					ai_InsertEvent( owner, "剛爪龍破壞" ,ai_EventInfos["剛爪龍破壞"]);	
+					ai_InsertEvent( owner, "剛爪龍尾巴" ,ai_EventInfos["剛爪龍尾巴"]);
+					ai_InsertEvent( owner, "剛爪龍致命" , ai_EventInfos["剛爪龍致命"] );
+					ai_InsertEvent( owner, "剛爪龍吼吼吼" , aiEvent_DraJumpAttack, 31002409, 8, 300, 40, 40  );
+					ai_InsertEvent( owner, "剛爪龍馬赫投擲" , aiEvent_DraJumpAttack, 31002411, 8, 300, 40, 40  );
+					ai_InsertEvent( owner, "剛爪龍爪擊" , aiEvent_DraJumpAttack, 31002406, 3, 300, 60, 0  );
+				elseif( Register1 == 3 )then										---------------------------   腳步受傷3
+					ai_InsertEvent( owner, "剛爪龍破壞" ,ai_EventInfos["剛爪龍破壞"]);	
+					ai_InsertEvent( owner, "剛爪龍尾巴" ,ai_EventInfos["剛爪龍尾巴"]);
+					ai_InsertEvent( owner, "剛爪龍致命" , ai_EventInfos["剛爪龍致命"] );
+					ai_InsertEvent( owner, "剛爪龍吼吼吼" , aiEvent_DraJumpAttack, 31002409, 5, 300, 40, 40  );
+					ai_InsertEvent( owner, "剛爪龍爪擊" , aiEvent_DraJumpAttack, 31002406, 3, 300, 60, 0  );
+				else	
+					local diff = GetInstanceLv(OwnerID() );--取得玩家所在副本難度，簡單=0，正常=1，困難=2														-------------------------------------             沒4
+					ai_InsertEvent( owner, "剛爪龍尾巴" ,ai_EventInfos["剛爪龍尾巴"]);
+					ai_InsertEvent( owner, "剛爪龍衝撞" ,ai_EventInfos["剛爪龍衝撞"]); 
+					ai_InsertEvent( owner, "剛爪龍狂亂" ,ai_EventInfos["剛爪龍狂亂"]); 
+					ai_InsertEvent( owner, "剛爪龍致命" , ai_EventInfos["剛爪龍致命"] );
+					ai_InsertEvent( owner, "剛爪龍左右閃" ,ai_EventInfos["剛爪龍左右閃"]);
+
+					ai_InsertEvent( owner, "剛爪龍吼吼吼" , aiEvent_DraJumpAttack, 31002409, 5, 300, 30, 40  );
+					ai_InsertEvent( owner, "剛爪龍爪擊" , aiEvent_DraJumpAttack, 31007507, 3, 300, 50, 0  );
+					ai_InsertEvent( owner, "剛爪龍火車" ,ai_EventInfos["剛爪龍火車"] );
+					
+					
+					if job == 1 or job == 3 then	
+						ai_ClearEvent( owner );
+						ai_InsertEvent( owner, "剛爪龍尾巴" ,ai_EventInfos["剛爪龍尾巴"]);
+						ai_InsertEvent( owner, "剛爪龍衝撞" ,ai_EventInfos["剛爪龍衝撞"]); 
+						ai_InsertEvent( owner, "剛爪龍狂亂" ,ai_EventInfos["剛爪龍狂亂"]); 
+						ai_InsertEvent( owner, "剛爪龍致命" , ai_EventInfos["剛爪龍致命"] );
+						ai_InsertEvent( owner, "剛爪龍左右閃" ,ai_EventInfos["剛爪龍左右閃"]);
+		
+						ai_InsertEvent( owner, "剛爪龍吼吼吼" , aiEvent_DraJumpAttack, 31002409, 5, 300, 30, 40  );
+						ai_InsertEvent( owner, "剛爪龍爪擊" , aiEvent_DraJumpAttack, 31007507, 3, 300, 50, 0  );
+						ai_InsertEvent( owner, "剛爪龍火車" ,ai_EventInfos["剛爪龍火車"] );
+					elseif 	job == 2 or job == 4 then
+						ai_ClearEvent( owner );
+						ai_InsertEvent( owner, "剛爪龍尾巴" ,ai_EventInfos["剛爪龍尾巴"]);
+						ai_InsertEvent( owner, "剛爪龍衝撞" ,ai_EventInfos["剛爪龍衝撞"]); 
+						ai_InsertEvent( owner, "剛爪龍狂亂" ,ai_EventInfos["剛爪龍狂亂"]); 
+						ai_InsertEvent( owner, "剛爪龍致命" , ai_EventInfos["剛爪龍致命"] );
+						--ai_InsertEvent( owner, "剛爪龍左右閃" ,ai_EventInfos["剛爪龍左右閃"]);
+
+						ai_InsertEvent( owner, "剛爪龍爪擊" , aiEvent_DraJumpAttack, 31007507, 7, 150, 50, 0  );
+						ai_InsertEvent( owner, "剛爪龍火車" ,ai_EventInfos["剛爪龍火車"] );
+						
+					end
+				end	
+				--owner:Yell( "IT OK" );	
+			end	
+		end
+			
+		ai_Run(owner,mainProc);
+
+		--ai_Run(owner);
+		
+		owner:SetModeEx( EM_SetModeType_DisableFaceTarget , false  );             -----------------------    回覆基本AI
+		owner:SetModeEx( EM_SetModeType_DiableAIProc , false );	
+		
+		--owner:Yell( "ai_11000262 end" );		
+	end
+
+end
+
+function BG_70000781_PartBroke()             -----------------       模板填部位破壞觸發事件
+	--ai_Run(owner);
+	--Yell( OwnerID() ,"Broken" );
+	AddBuff(OwnerID(),OwnerID(),30002746,1,-1);
+	local Register1 =  ReadRoleValue( OwnerID() , EM_RoleValue_Register+1 );
+	if Register1 == 1 then
+		WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 2 );  ---------- 記部位破壞暫存值 0- 沒壞 1- 壞
+	elseif Register1 == 2 then
+		WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 3 );  ---------- 記部位破壞暫存值 0- 沒壞 1- 壞
+	else
+		WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 1 );  ---------- 記部位破壞暫存值 0- 沒壞 1- 壞	
+	end	
+	--WriteRoleValue( OwnerID() , EM_RoleValue_BallTNPDmgRate , 1.5);      -------   受到傷害提升
+	AddBuff(OwnerID(),OwnerID(),30002568,10,0);
+	--AddBuff(OwnerID(),OwnerID(),30002601,1,-1);
+end
+
+function BG_70000781_EXDragonStart()												--------------   BOSS登場
+	local RoomID = ReadRoleValue( OwnerID(), EM_RoleValue_RoomID );           --  玩家所在房間資訊
+	local job = 	ReadRoleValue( OwnerID() , EM_RoleValue_JOB);  -- 範圍劇情檢查處發者是否GM
+	local gmNoRun = 0;														-- GM旗標 0執行 1 不執行	
+	local diff = GetInstanceLv(OwnerID() );--取得玩家所在副本難度，簡單=0，正常=1，困難=2
+	if job == 0 then	                                                       -- 檢查職業 GM = 0
+		gmNoRun = 1;
+	end
+	if gmNoRun == 0 then
+
+		local EXDra = Lua_SearchRangeNPC( OwnerID() , 11000275 , 800 , true); 
+	
+		DisableCollisionBox( 15, RoomID, 1 ) ;
+
+		CallPlot(EXDra , "BG_70000441_EXDragonBegin" , EXDra);   -----------  登場劇情
+	end	
+end
+
+function BG_70000781_EXDragonBegin(EXDra)
+	local diff = GetInstanceLv(OwnerID() );--取得玩家所在副本難度，簡單=0，正常=1，困難=2
+	local Dra ;
+
+	EXDra = Lua_SearchRangeNPC( OwnerID() , 11000275 , 500 , true); 
+	Dra = Lua_SearchRangeNPC( OwnerID() , 11000345 , 600 ); 
+
+	
+	if Dra ~= -1 then
+		for i = 1 , #Dra do
+			local DieDra = ReadRoleValue(Dra[i] ,EM_RoleValue_PID );
+			if DieDra == 1 then
+				BeginPlot(Dra[i], "BG_70000441_ExDragonRunAway" , 0);					----------------	附近PID=1的奔龍 會逃跑
+			end	
+		end 
+	end	
+	MoveToFlagEnabled( EXDra , false );
+	SetModeEX( EXDra, EM_SetModeType_Strikback , false);            
+	SetModeEX( EXDra, EM_SetModeType_Fight , false);         
+	SetModeEX( EXDra, EM_SetModeType_Searchenemy , false);            ----------------------  主動鎖敵攻擊玩家
+	SetModeEX( EXDra, EM_SetModeType_Gravity , false);
+	
+	Castspell(EXDra, EXDra,31002418,0);													-----------  跳躍落地後接    施法完施展 前衝技能
+
+	local x = GetMoveFlagValue( 45000843 , 0 , EM_RoleValue_X ) ;
+	local y = GetMoveFlagValue( 45000843 , 0 , EM_RoleValue_Y ) ;
+	local z = GetMoveFlagValue( 45000843 , 0 , EM_RoleValue_Z ) ;
+	local dir = GetMoveFlagValue( 45000843 , 0 , EM_RoleValue_Dir ) ;
+	sleep(12);
+	SpecialMove( EXDra , 6 , x , y  ,z , dir );                              ------------------------做招式  位移使用特殊移動衝鋒做       
+	sleep(10);
+
+	
+	sleep(25);
+	Castspell(EXDra, EXDra,31002410,0);	
+	sleep(12);
+	--SpecialMove( EXDra , 6 , x1 , y1  ,z1 , dir1 );                              ------------------------做招式  位移使用特殊移動衝鋒做
+	--SetDir( EXDra, dir1 )      
+	sleep(10);
+	SetModeEX( EXDra, EM_SetModeType_Strikback , true);            
+	SetModeEX( EXDra, EM_SetModeType_Fight , true);            ----------------------  主動鎖敵攻擊玩家
+	SetModeEX( EXDra, EM_SetModeType_Searchenemy , true);            ----------------------  主動鎖敵攻擊玩家
+	SetModeEX( EXDra, EM_SetModeType_Gravity , true);
+	--SetDir( EXDra, -84 ) ;
+	Lua_MoveToFlag(  EXDra , 45000843  , 0 , 0 ); 
+	--SetAttack(EXDra, OwnerID() );
+end
+
+function BG_70000781_ExDragonRunAway() 							---------------------   奔龍逃跑一段時間後自殺
+	local x = GetMoveFlagValue( 45000843 , 1 , EM_RoleValue_X )
+	local y = GetMoveFlagValue( 45000843 , 1 , EM_RoleValue_Y )
+	local z = GetMoveFlagValue( 45000843 , 1 , EM_RoleValue_Z )
+	local dir = GetMoveFlagValue( 45000843 , 1 , EM_RoleValue_Dir )
+	
+	local tim = Move(OwnerID()  ,x , y, z);
+	sleep(tim);
+	
+	Killid(OwnerID(),OwnerID());
+end
+
+
+function BG_70000781_ExDragonEndGame() 							---------------------  
+	local x = GetMoveFlagValue( 45000843 , 1 , EM_RoleValue_X ) ;
+	local y = GetMoveFlagValue( 45000843 , 1 , EM_RoleValue_Y ) ;
+	local z = GetMoveFlagValue( 45000843 , 1 , EM_RoleValue_Z ) ;
+	local dir = GetMoveFlagValue( 45000843 , 1 , EM_RoleValue_Dir ) ;
+	
+	BG_70000441_OverUnlockDoor();  
+	
+	local tim = Move(OwnerID()  ,x , y, z);
+	
+end
+
+------------------------------------------ 阻擋門相關    大神----------------------------------------
+
+
+function BG_70000781_BossUnlockDoor()                               ------------------  BOSS 死亡 把門刪掉
+	local zoneID =  ReadRoleValue(  OwnerID() ,EM_RoleValue_ZoneID);   --------  檢查ZONEID 
+	if zoneID  >= 300 and zoneID  <= 399  then
+		BG_70000486_BossDie();
+		dd_304_Sraredragon_call();
+	end	
+end
+
+function BG_70000781_OverUnlockDoor()                               ------------------  BOSS 戰鬥結束 把門刪掉
+	local zoneID =  ReadRoleValue(  OwnerID() ,EM_RoleValue_ZoneID);   --------  檢查ZONEID 
+	--Yell(TargetID() ,"meeeeeeeeeeeeee")
+	SetModeEx( OwnerID() , EM_SetModeType_Searchenemy, false) ;---索敵
+	Addbuff( OwnerID() , OwnerID() ,30006366 ,1 ,-1);
+	
+	if zoneID ~= 304 then
+		--SetStopAttack( owner:GUID() ) ;
+		Lua_MoveToFlag( OwnerID() , 45000843  , 0 , 0 ); 
+	end
+end

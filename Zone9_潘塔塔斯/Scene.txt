@@ -1,0 +1,43 @@
+
+
+function Z327_InLava()
+	local _playerID = OwnerID();
+	local _roomID = ReadRoleValue( _playerID, EM_RoleValue_RoomID );
+	local _lavaNPC = Z327_LavaNPC_GetInstance( _roomID );
+	DebugMsg( 0, "InvisiableNPC : ".._lavaNPC );
+	CastSpell( _lavaNPC, _playerID , 31008958, 0 );	-- ©¥¼ß20%dmg + ©¥¼ß¤ºdot
+	CancelBuff_NoEvent( _playerID , 30007213 );	-- ¥X©¥¼ßdot
+	
+end
+
+function Z327_OutLava()
+	local _playerID = OwnerID();
+	local _roomID = ReadRoleValue( _playerID, EM_RoleValue_RoomID );
+	local _lavaNPC = Z327_LavaNPC_GetInstance( _roomID );
+	CancelBuff_NoEvent( _playerID , 30007212 );		-- ©¥¼ß¤ºdot
+	AddBuff( _playerID , _lavaNPC , 30007213 , 0 , 60 );	-- ¥X©¥¼ßdot
+end
+
+
+function Z327_LavaNPC_GetInstance( _InputRoomID )
+	if( not Z327_LavaNPC_SingletonPointer ) or ( not CheckGUID( Z327_LavaNPC_SingletonPointer ) ) then   --Singleton Pattern
+		Z327_LavaNPC_SingletonPointer = Z327_CreateLavaNPC( _InputRoomID );
+		DebugMsg( 0, "Z327_LavaNPC : Instance" );
+	end
+
+	return Z327_LavaNPC_SingletonPointer;
+end
+
+
+function Z327_CreateLavaNPC( _InputRoomID )
+   	local _LavaNPC = CreateObjByFlag( 10010415 , 45001257, 0 );
+   	SetModeEx( _LavaNPC , EM_SetModeType_Fight , false );
+   	SetModeEx( _LavaNPC , EM_SetModeType_Mark , false );
+   	SetModeEx( _LavaNPC , EM_SetModeType_Move , false );
+   	SetModeEx( _LavaNPC , EM_SetModeType_Searchenemy , false );
+   	SetModeEx( _LavaNPC , EM_SetModeType_ShowMinimap , false );
+   	SetModeEx( _LavaNPC , EM_SetModeType_ShowRoleHead , false );
+   	AddToPartition( _LavaNPC , _InputRoomID );
+              
+	return _LavaNPC;
+end

@@ -1,0 +1,151 @@
+
+------------------------------Role Class
+--this sequence is an Object simulation
+ArisRole = {};
+ArisRole.class = "Role";
+
+function ArisRole:new( _InputGuid )--
+	local _instance ={}--new object
+	_instance.GUID = _InputGuid;--property
+	setmetatable( _instance , self );--inherit ArisRole
+	--self.__index = self;--inherit ArisRole
+	self.__index = function( _InstanceObj , _PropertyName )--seeking for class property
+				if ( ArisRoleValue[ _PropertyName ] ) then --seek for property
+					return ReadRoleValue( _InstanceObj.GUID, ArisRoleValue[ _PropertyName ] );--redirct to ArisRoleValue
+				end
+
+				return self[ _PropertyName ]; --would be nil
+			end
+
+	self.__newindex = function( _InstanceObj , _PropertyName , _value )--prevant overwrite the existing properties
+				if ( ArisRoleValue[ _PropertyName ] ) then
+					WriteRoleValue( _InstanceObj.GUID , ArisRoleValue[_PropertyName] , _value );
+				end
+			end 
+	
+	return _instance;
+end
+
+function ArisRole:AddToPartition( _InputRoomID )
+	local _InputRoomID = _InputRoomID or 0;
+	if type( _InputRoomID ) ~= "number" then
+		DebugMsg(0, "[ERROR] type error. ArisRole:AddToPartition(  _InputRoomID:number )");
+		return
+	end
+	AddToPartition( self.GUID , _InputRoomID );
+	--self:dispatchEvent(AddyRoleEvent:new(AddyRoleEvent.AddToPartition))
+end
+
+function ArisRole:DelFromPartition()
+	DelFromPartition( self.GUID );
+	--self:dispatchEvent(AddyRoleEvent:new(AddyRoleEvent.DelFromPartition))
+end
+
+--function ArisRole:SetFollow( _InputTargetID )
+--	SetFollow( self.GUID , _InputTargetID );
+--end
+
+
+
+
+
+
+
+--------------------------------------------------------------------abstract properties
+	ArisRoleValue = {
+		hp = EM_RoleValue_HP,
+		mp = EM_RoleValue_MP,
+		max_hp = EM_RoleValue_MaxHP,
+		race = EM_RoleValue_RACE,
+		voc = EM_RoleValue_VOC,
+		sex = EM_RoleValue_SEX,
+		exp = EM_RoleValue_EXP,
+		lv = EM_RoleValue_LV,
+		x = EM_RoleValue_X,
+		y = EM_RoleValue_Y,
+		z = EM_RoleValue_Z,
+		direction = EM_RoleValue_Dir,
+		str = EM_RoleValue_STR,
+		sta = EM_RoleValue_STA,
+		int = EM_RoleValue_INT,
+		mnd = EM_RoleValue_MND,
+		agi = EM_RoleValue_AGI,
+		point = EM_RoleValue_Point,
+		skill_point = EM_RoleValue_SkillPoint,
+		sp = EM_RoleValue_SP,
+		sub_sp = EM_RoleValue_SP_Sub,
+		sub_voc = EM_RoleValue_VOC_SUB,
+		sub_lv = EM_RoleValue_LV_SUB,
+		this_lv_exp = EM_RoleValue_ThisLVExp,
+		live_time = EM_RoleValue_LiveTime,
+		body_count = EM_RoleValue_BodyCount,
+		bank_count = EM_RoleValue_BankCount,
+		room_id = EM_RoleValue_RoomID,
+		tp_exp = EM_RoleValue_TpExp,
+		money = EM_RoleValue_Money,
+		account_money = EM_RoleValue_Money_Account,
+		kill_rate = EM_RoleValue_KillRate,
+		stomach_point = EM_RoleValue_StomachPoint,
+		system_flag = EM_RoleValue_SysFlag,
+		add_exp = EM_RoleValue_AddExp,
+		add_tp = EM_RoleValue_AddTP,
+		play_time_quota = EM_RoleValue_PlayTimeQuota,
+		good_evil = EM_RoleValue_GoodEvil,
+		voc_count = EM_RoleValue_VocCount,
+		box_energy = EM_RoleValue_BoxEnergy,
+		medal_count = EM_RoleValue_MedalCount,
+		bonus_money = EM_RoleValue_BonusMoney,
+		max_lv = EM_RoleValue_MaxLv,
+		debt_exp = EM_RoleValue_DebtExp,
+		debt_tp = EM_RoleValue_DebtTP,
+		honor = EM_RoleValue_Honor,
+		max_plant_count = EM_RoleValue_MaxPlantCount,
+		attack_delay = EM_RoleValue_AttackDelay,
+		total_tp_exp = EM_RoleValue_TotalTpExp,
+		vip_flag = EM_RoleValue_VIP_Flag,
+		famous = EM_RoleValue_Famous,
+		register1 = EM_RoleValue_Register1,
+		register2 = EM_RoleValue_Register2,
+		register3 = EM_RoleValue_Register3,
+		register4 = EM_RoleValue_Register4,
+		register5 = EM_RoleValue_Register5,
+		register6 = EM_RoleValue_Register6,
+		register7 = EM_RoleValue_Register7,
+		register8 = EM_RoleValue_Register8,
+		register9 = EM_RoleValue_Register9,
+		register10 = EM_RoleValue_Register10,
+		is_npc = EM_RoleValue_IsNPC,
+		is_player = EM_RoleValue_IsPlayer,
+		ORGID  = EM_RoleValue_OrgID,
+		attack_target_GUID = EM_RoleValue_AttackTargetID,
+		pid = EM_RoleValue_PID,
+		is_walk = EM_RoleValue_IsWalk,
+		max_hit = EM_RoleValue_MaxHit,
+		DBID = EM_RoleValue_DBID,
+		is_dead = EM_RoleValue_IsDead,
+		group_id = EM_RoleValue_GroupID,
+		guild_id = EM_RoleValue_GuildID,
+		zone_id = EM_RoleValue_ZoneID,
+		house_dbid = EM_RoleValue_HouseDBID,
+		pet_id = EM_RoleValue_PetID,
+		is_attack_mode = EM_RoleValue_IsAttackMode,
+		is_unholster = EM_RoleValue_IsUnholster,
+		spell_magic_ORGID = EM_RoleValue_SpellMagicID,
+		camp_id = EM_RoleValue_CampID,
+		owner_DBID = EM_RoleValue_OwnerDBID,
+		owner_GUID = EM_RoleValue_OwnerGUID,
+		dodge = EM_RoleValue_DodgeState,
+		be_dodge = EM_RoleValue_BeDodgeState,
+		miss = EM_RoleValue_MissState,
+		parry = EM_RoleValue_ParryState,
+		be_parry = EM_RoleValue_BeParryState,
+		critial = EM_RoleValue_CritialState,
+		be_critial = EM_RoleValue_BeCritialState,
+		magic_critial = EM_RoleValue_MagicCritialState,
+		be_magic_critial = EM_RoleValue_BeMagicCritialState,
+		shield_block = EM_RoleValue_ShieldBlockState,
+		be_shield_block = EM_RoleValue_BeShieldBlockState,
+		last_change_amount_of_hp = EM_RoleValue_LastDHp,
+		last_changer_of_hp = EM_RoleValue_LastDHpTarget
+	}
+--------------------------------------------------------------------abstract properties

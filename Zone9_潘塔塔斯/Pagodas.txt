@@ -1,0 +1,102 @@
+--------------------for NPC 10011349
+--author : K.J. Aris
+--version : 13.09.05.11.47
+_Z327_70000809_Pagoda_DeathList = {};--keep death data
+
+function Z327_70000809_Pagoda_Init()
+	local _TargetID = OwnerID();
+	PlayMotionEX( _TargetID , 34000001 , 34000001 , 0 );
+	DebugMsg( 0 , _TargetID.." Reinited" );
+
+--------------------------------------------------------------------------------------------multiply Max HP by number players 
+--	local _roomID = ReadRoleValue( _TargetID, EM_RoleValue_RoomID );
+--	local _totalPlayer = SetSearchAllPlayer( _roomID );
+--
+--	local _MaxHP = ReadRoleValue( _TargetID, EM_RoleValue_MaxHP );
+--	DebugMsg( 0 , _TargetID.." MaxHP : ".._MaxHP );
+--	WriteRoleValue( _TargetID , EM_RoleValue_MaxHP , ( _MaxHP*_totalPlayer ) );
+--	_MaxHP = ReadRoleValue( _TargetID, EM_RoleValue_MaxHP );
+--	DebugMsg( 0 , _TargetID.."Multiplied MaxHP : ".._MaxHP );
+------------------------------------------------------------------------------END-----------multiply Max HP by number players 	
+end
+
+
+
+function Z327_70000809_Pagoda_Destroyed()--plot of Pagoda Destruction
+	local _TargetID = OwnerID();
+
+	local _BossID = Lua_SearchRangeNPC( _TargetID , 10010131 , 1000 , true ); 
+
+	if ( not _BossID ) then -- skip if the Boss doesn't exist.
+		DebugMsg( 0 , "There is no Boss" );
+		return;
+	end
+	
+	DebugMsg( 0 , _TargetID.." Destroyed !!" );
+	
+	local _BossStatus = ReadRoleValue( _BossID , EM_RoleValue_Register );
+	DebugMsg( 0 , _TargetID.." Destroyed !!     Boss status : ".. _BossStatus );
+	if ( _BossStatus < 1 ) then -- <1 : skip counting before The boss is really on fight preventing players to destroy pagodas before the boss fight.
+		DebugMsg( 0 , _TargetID.." Not in combat !!" );--column will revive infinitely before status 1. 		--seeing on 70000809	----0:Spawn , 1:Ordinary combat , 2:Grieve , 3:Last struggle
+		return;
+	end
+	
+------------------------------------------------------------------------------------------------count and write Pagodas status 
+	local _PagodaStatus = ReadRoleValue( _BossID , EM_RoleValue_Register+1 );
+	_PagodaStatus = _PagodaStatus - 1;
+	WriteRoleValue( _BossID , EM_RoleValue_Register+1 , _PagodaStatus );
+	DebugMsg( 0 , " Destroyed !!     Colum Left : ".. _PagodaStatus );
+	--_BossStatus = _BossStatus + 1;
+	_BossStatus = 2;--making Boss to act "Grieve plot"  --"ai_EventInfos["¤ßµhµh"]" will be triggered	--0:Spawn , 1:Ordinary combat , 2:Grieve , 3:Last struggle
+	WriteRoleValue( _BossID , EM_RoleValue_Register , _BossStatus );
+	DebugMsg( 0 , _BossID.." status now change to : ".. _BossStatus );
+----------------------------------------------------------------------------------END-----------count and write Pagodas status 
+----	SetModeEx( _TargetID, EM_SetModeType_Revive, false );
+--	sleep( 30 );
+--
+-----------------------------------------------------------------------------------------------create body
+
+	SetModeEx( _TargetID, EM_SetModeType_Mark, false );
+	SetModeEx( _TargetID, EM_SetModeType_Fight, false );
+	SetModeEx( _TargetID, EM_SetModeType_Move, false );
+	SetModeEx( _TargetID, EM_SetModeType_Strikback, false );
+	SetModeEx( _TargetID, EM_SetModeType_Searchenemy, false );
+	SetModeEx( _TargetID, EM_SetModeType_Revive, false );
+	--WriteRoleValue( _TargetID , EM_RoleValue_HP , 1 );
+	PlayMotionEX( _TargetID , 34000260 , 34000261 , 0 );--death Idle
+	
+------------------------------------------------------------------------------------END--------create body
+
+	table.insert( _Z327_70000809_Pagoda_DeathList , _TargetID );--record
+	return false;--for server to recognize character as an "undead" role to avoid body clean up.
+end
+
+
+
+function Z327_70000809_ResetAllPagodas()--reset all pagodas
+	local function RegeneratePagoda( _TargetID )
+		local x,y,z,dir = Lua_GetPositionByObj( _TargetID , 0 , 0 );
+		local _roomID = ReadRoleValue( _TargetID , EM_RoleValue_RoomID );
+		DelObj( _TargetID );
+		 _TargetID = CreateObj( 10011349 , x , y , z , dir );
+		SetModeEx( _TargetID , EM_SetModeType_Mark , true );
+		SetModeEx( _TargetID, EM_SetModeType_Fight, true );
+		SetModeEx( _TargetID, EM_SetModeType_Move, false );
+		SetModeEx( _TargetID, EM_SetModeType_Strikback, false );
+		SetModeEx( _TargetID, EM_SetModeType_Searchenemy, false );
+		SetModeEx( _TargetID , EM_SetModeType_ShowRoleHead , true );
+		--SetModeEx( _TargetID, EM_SetModeType_Revive, false );
+		AddToPartition( _TargetID , _roomID );
+	end
+
+	for i = 1 , #_Z327_70000809_Pagoda_DeathList , 1 do
+		DebugMsg( 0 , "Resigning ".._Z327_70000809_Pagoda_DeathList[ i ] );
+		RegeneratePagoda( _Z327_70000809_Pagoda_DeathList[ i ] );
+		--table.remove( _Z327_70000809_Pagoda_DeathList , i );
+	end
+	_Z327_70000809_Pagoda_DeathList = {};
+end
+
+
+--function Z327_70000809_Pagoda_Data_Closure()
+--end

@@ -1,0 +1,421 @@
+local ai_EventInfos = {};
+
+
+ai_EventInfos["昂德尾巴左"] =
+{
+	OnInit = function(owner,data)
+		data.cooldown = 12;
+	end,
+	OnCelPriority = function(owner,data)
+
+		if( not owner.hateList[1] )then
+			return 0;
+		end
+		
+		local hitedList = {};
+				
+		for i,v in ipairs( owner.hateList ) do	
+			local guid = v:GUID();
+			if( not hitedList[guid] )then
+				local _dist = GetDistanceEX( owner:GUID(), guid );
+				if( _dist < 100 )then
+					local angle = com_CalTargetDir( owner:GUID(), owner.hateList[1]:GUID() )  -- 左右轉角度
+					if angle >= 45 and angle <= 135 then 												--  在屁股後面必出
+						data.target = owner.hateList[1];
+						return 70;
+					end
+				end
+			end
+		end	
+		return 0;
+	end,
+	OnExecute = function(owner,data)
+		ai_CastSpell( owner:GUID(), owner:GUID(), 31003465, 10, 2 );
+		if(ai_sleep(owner,21))then return; end
+	end,
+}
+
+ai_EventInfos["昂德尾巴後"] =
+{
+	OnInit = function(owner,data)
+		data.cooldown = 10;
+	end,
+	OnCelPriority = function(owner,data)
+
+		if( not owner.hateList[1] )then
+			return 0;
+		end
+		
+		local hitedList = {};
+				
+		for i,v in ipairs( owner.hateList ) do	
+			local guid = v:GUID();
+			if( not hitedList[guid] )then
+				local _dist = GetDistanceEX( owner:GUID(), guid );
+				if( _dist < 120 )then
+					local angle = com_CalTargetDir( owner:GUID(), owner.hateList[1]:GUID() )  -- 左右轉角度
+					if angle >= 135 and angle <= 225 then 												--  在屁股後面必出
+						data.target = owner.hateList[1];
+						return 70;
+					end
+				end
+			end
+		end	
+		return 0;
+	end,
+	OnExecute = function(owner,data)
+		ai_CastSpell( owner:GUID(), owner:GUID(), 31003469, 10, 2 );
+		if(ai_sleep(owner,34))then return; end
+	end,
+}
+
+ai_EventInfos["昂德鑽地"] =
+{
+	OnInit = function(owner,data,dragon)
+		
+		data.cooldown = 6;
+		--DeBugMsg(0,"test....2");
+	end,
+	OnCelPriority = function(owner,data,dragon)
+			
+		data.target = ai_SearchEnemy_Line( owner, 300, 100 );
+		if( not data.target )then
+			return 0;
+		end
+			
+		if  (BG_70000416_RandSkillValue(100,35)) == true then   --------------  35% 隨機目標
+			local TarTemp = #owner.hateList;
+			local	Tar = Rand(TarTemp) + 1;
+			data.target = owner.hateList[Tar];
+		end 
+					
+		data.randvalue = rand(45)+30;
+		return data.randvalue;
+	end,
+	OnExecute = function(owner,data,dragon)
+		if ( not data.target ) then
+			return;
+		end
+		
+		--如果移動到對象 會鑽進牆壁   則不移動   -- 130821 K.J. Aris
+		local check = ai_checkcollide( data.target:GUID() , 0.5 , 200 )  ;        ---------                 打線檢查----------  打線檢查用函式 填(使用者 ,幾秒檢查一次(最低0.5), 身長)-----檢查移動過去是否會有機會碰到阻擋物件-(此函是檢察高度為一個人高大概15左右)
+		if  check  == false then 								
+			return;
+		end
+
+
+		if  (BG_70000416_RandSkillValue(100,50)) == true then 
+			ai_CastSpell( owner:GUID(), data.target:GUID(), 31004163, 10, 2 );
+			if(ai_sleep(owner,22))then return; end
+		end;                   ----------------------    50%機會 繼續走	
+			
+
+		ai_CastSpell( owner:GUID(), data.target:GUID(), 31003470, 10, 2 );
+		--sleep(31);
+		ai_WaitSpellEnd( owner , 0 );
+		SetModeEx( owner:GUID() ,EM_SetModeType_ClientHide, true ) ;
+		SetModeEx( owner:GUID() ,EM_SetModeType_Fight, false ) ;
+		SetModeEx( owner:GUID() ,EM_SetModeType_ShowMinimap, false ) ;
+		
+		
+		sleep(10);
+
+		local x0,y0,z0,dir = Lua_GetPositionByObj( data.target:GUID() , 0 , 0 ) ; -----取得玩家的座標
+		SetPos(owner:GUID(), x0, y0, z0, dir)------把王拉到這邊
+		ai_CastSpell( owner:GUID(), data.target:GUID(), 31003471, 10, 2 );
+		SetModeEx( owner:GUID() ,EM_SetModeType_ClientHide, false ) ;
+		SetModeEx( owner:GUID() ,EM_SetModeType_Fight, true ) ;
+		SetModeEx( owner:GUID() ,EM_SetModeType_ShowMinimap, true ) ;
+		sleep(26);
+	end,
+}
+
+
+ai_EventInfos["昂德衝撞"] =
+{
+	OnInit = function(owner,data,dragon)
+		
+		data.cooldown = 6;
+		--DeBugMsg(0,"test....2");
+	end,
+	OnCelPriority = function(owner,data,dragon)
+			
+		data.target = ai_SearchEnemy_Line( owner, 400, 100 );
+		if( not data.target )then
+			return 0;
+		end
+			
+		if  (BG_70000416_RandSkillValue(100,35)) == true then   --------------  35% 隨機目標
+			local TarTemp = #owner.hateList;
+			local	Tar = Rand(TarTemp) + 1;
+			data.target = owner.hateList[Tar];
+		end 
+					
+		data.randvalue = rand(45)+30;
+		return data.randvalue;
+	end,
+	OnExecute = function(owner,data,dragon)
+		
+		--如果衝過去會鑽牆
+		local check = ai_checkcollide( owner:GUID() , 0.5 , 90 )  ;        ---------                 打線檢查----------  打線檢查用函式 填(使用者 ,幾秒檢查一次(最低0.5), 身長)-----檢查移動過去是否會有機會碰到阻擋物件-(此函是檢察高度為一個人高大概15左右)
+		if  check  == false then 								
+			return;
+		end
+
+		ai_CastSpell( owner:GUID(), data.target:GUID(), 31003473, 10, 2 );
+		sleep(26);
+		
+	end,
+}
+
+ai_EventInfos["昂德威嚇"] =
+{
+	OnInit = function(owner,data)
+		
+		data.cooldown = 15;	
+	end,
+	OnCelPriority = function(owner,data)
+					
+		data.randvalue = rand(38)+40;
+		return data.randvalue;
+	end,
+	OnExecute = function(owner,data)	
+		if (data.randvalue > 61 and data.randvalue < 74) then					--- 隨機表演其中一個IDLE
+			PlayMotion(  owner:GUID(), 34000098, 0 );
+			if(ai_sleep(owner,39))then return; end
+		elseif	(data.randvalue > 75 and data.randvalue < 80) then
+			PlayMotion(  owner:GUID(), 34000099 , 0 );
+			if(ai_sleep(owner,25))then return; end
+		end
+	end,
+}
+
+
+function ai_70000471_Andemors_Main()               							----------------------------------------主程式
+	WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 0 ); 
+	SetModeEx( OwnerID() , EM_SetModeType_Gravity, true) ;---索敵
+	local owner = ai_CreateOwner( OwnerID() );
+	--owner:Yell( "ai_11000262_test" );	
+	local diff = GetInstanceLv(OwnerID() );--取得玩家所在副本難度，簡單=0，正常=1，困難=2
+	owner:SetModeEx( EM_SetModeType_DisableFaceTarget , true );
+	owner:SetModeEx( EM_SetModeType_DiableAIProc , true );	
+	
+	ai_ClearEvent( owner );
+	
+	owner.Register = -1;
+	
+	local mainProc = function( owner )
+		--owner:Yell( "flag" );	
+		
+		--local head = ReadRoleValue( OwnerID() , 	EM_RoleValue_BallTNP) ;
+		--DebugMsg(0,head);
+		--local Speed = ReadRoleValue( OwnerID() , 	EM_RoleValue_Speed) ;
+		--DebugMsg(0,Speed);
+		--local org1 = ReadRoleValue( OwnerID() ,EM_RoleValue_OrgID);
+		
+		--DebugMsg(0,org1);
+		--DebugMsg(0,OwnerID());
+		
+		
+		local Register1 =  ReadRoleValue( OwnerID() , EM_RoleValue_Register+1 );
+		if( owner.Register ~= Register1 )then
+		
+			owner.Register = Register1;
+					
+			ai_ClearEvent( owner );
+			
+			if( Register1 == 1 )then                            ----------------------------------------部位破壞時觸發
+				
+				--owner:Yell( "BROKENNNNNNN!!!!" );	
+			else														----------------------------------------部位破壞前
+
+
+				ai_InsertEvent( owner, "昂德尾巴左" ,	ai_EventInfos["昂德尾巴左"] ); 
+				ai_InsertEvent( owner, "昂德尾巴後" , ai_EventInfos["昂德尾巴後"] );
+				ai_InsertEvent( owner, "昂德鑽地" , ai_EventInfos["昂德鑽地"] );
+				ai_InsertEvent( owner, "昂德威嚇" , ai_EventInfos["昂德威嚇"] );
+				ai_InsertEvent( owner, "昂德衝撞" , ai_EventInfos["昂德衝撞"] );
+				
+				if diff <= 1 then
+					ai_InsertEvent( owner, "昂德毒" , aiEvent_AllRangerAttack_bg , 31003472, 8, 300, 30, 40  );
+					ai_InsertEvent( owner, "昂德頭撞" , aiEvent_MeleeAttack_bg, 31003467, 5, 200, 30, 40  );
+					ai_InsertEvent( owner, "昂德尾刺" , aiEvent_MeleeAttack_bg, 31003468, 7, 300, 30, 40  );
+					ai_InsertEvent( owner, "昂德掃" , aiEvent_MeleeAttack_bg, 31003465, 3, 300, 45, 0  );
+					ai_InsertEvent( owner, "昂德咬" , aiEvent_MeleeAttack_bg, 31003466, 3, 300, 45, 0  );
+				elseif diff == 2 then
+					ai_InsertEvent( owner, "昂德毒" , aiEvent_AllRangerAttack_bg , 31003472, 3, 300, 30, 30  );
+					ai_InsertEvent( owner, "昂德頭撞" , aiEvent_MeleeAttack_bg, 31003467, 5, 200, 30, 30  );
+					ai_InsertEvent( owner, "昂德尾刺" , aiEvent_MeleeAttack_bg, 31003468, 7, 150, 30, 30  );
+					ai_InsertEvent( owner, "昂德掃" , aiEvent_MeleeAttack_bg, 31003465, 3, 150, 30, 0  );
+					ai_InsertEvent( owner, "昂德咬" , aiEvent_MeleeAttack_bg, 31003466, 3,150, 30, 0  );
+				end
+				--owner:Yell( "IT OK" );	
+			end	
+		end
+	end
+		
+	--ai_Run(owner,mainProc);
+	ai_70000471_ai_Run( owner , mainProc );
+--	ai_Run(owner);--130819 K.J. Aris
+	
+	ai_ClearEvent( owner );
+	
+	owner:SetModeEx( EM_SetModeType_DisableFaceTarget , false );
+	owner:SetModeEx( EM_SetModeType_DiableAIProc , false );	
+	--owner:Yell( "ai_11000262 end" );		
+end
+
+function BG_70000471_PartBroke()             -----------------       模板填部位破壞觸發事件
+	--ai_Run(owner);
+	--Yell( OwnerID() ,"Broken" );
+	
+	WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 1 );  ---------- 記部位破壞暫存值 0- 沒壞 1- 壞
+	--WriteRoleValue( OwnerID() , EM_RoleValue_BallTNPDmgRate , 1.5);      -------   受到傷害提升
+	AddBuff(OwnerID(),OwnerID(),30002568,10,0);
+	--AddBuff(OwnerID(),OwnerID(),30002601,1,-1);
+end
+
+function BG_70000471_BossStart()
+	local RoomID = ReadRoleValue( OwnerID(), EM_RoleValue_RoomID );
+	local job = 	ReadRoleValue( OwnerID() , EM_RoleValue_JOB);  -- 範圍劇情檢查處發者是否GM
+	local gmNoRun = 0;														-- GM旗標 0執行 1 不執行	
+	if job == 0 then	                                                       -- 檢查職業 GM = 0
+		gmNoRun = 1;
+	end
+	if gmNoRun == 0 then
+		BeginPlot(OwnerID() ,"BG_70000471_BossSwpan",0);
+		DisableCollisionBox(13,RoomID,1) --關閉白盒子劇情 
+	end	
+end
+
+function BG_70000471_BossSwpan()
+	local RoomID = ReadRoleValue( OwnerID(), EM_RoleValue_RoomID );   --取得 房間資訊
+	local diff = GetInstanceLv(OwnerID()) ;--取得玩家所在副本難度，簡單=0，正常=1，困難=2
+	local boss;
+	local job = 	ReadRoleValue( OwnerID() , EM_RoleValue_JOB);  -- 範圍劇情檢查處發者是否GM
+	local gmNoRun = 0;														-- GM旗標 0執行 1 不執行	
+	if job == 0 then	                                                       -- 檢查職業 GM = 0
+		gmNoRun = 1;
+	else
+		gmNoRun = 0;
+	end
+	if gmNoRun == 0 then
+		DisableCollisionBox(13,RoomID,1) --關閉白盒子劇情 
+
+		boss = Lua_SearchRangeNPC( OwnerID() , 11000131 , 800 ,true);
+
+		MoveToFlagEnabled( boss , false) ; 
+		local x0,y0,z0,dir = Lua_GetPositionByObj( OwnerID() , 0 , 0 ) ; -----取得玩家的座標
+		ai_CastSpell( boss , boss , 31003470, 10, 2 );
+		sleep(30);
+		SetModeEx(boss  ,EM_SetModeType_ClientHide, true ) ;
+		SetModeEX(boss , EM_SetModeType_Gravity , true);
+		sleep(10);
+		SetPos(boss , x0, y0, z0, dir)------把王拉到這邊
+		ai_CastSpell( boss , boss , 31003471, 10, 2 );
+		SetModeEx(boss  ,EM_SetModeType_ClientHide, false ) ;
+
+		SetModeEx( boss  ,EM_SetModeType_Fight, true ) ;
+		SetModeEx( boss  ,EM_SetModeType_ShowMinimap, true ) ;
+	end	
+end
+
+function BG_70000471_BossSwpanG()
+	SetModeEX(boss , EM_SetModeType_Gravity , false);
+end
+
+
+function BG_70000471_BossWin()
+	local zoneID =  ReadRoleValue(  OwnerID() ,EM_RoleValue_ZoneID);   --------  檢查ZONEID 
+	--Yell(TargetID() ,"meeeeeeeeeeeeee")
+	if 	(zoneID > 300 and zoneID < 399) or (zoneID > 500 and zoneID < 599) then     -------------  不在冒險區裡面或副本裡不開啟介面	
+	
+		local RoomID = ReadRoleValue( OwnerID(), EM_RoleValue_RoomID );   --取得 房間資訊
+		local zoneID =  ReadRoleValue(  OwnerID() ,EM_RoleValue_ZoneID);   --------  檢查ZONEID 
+		--Yell(TargetID() ,"meeeeeeeeeeeeee")
+		SetModeEx( OwnerID() , EM_SetModeType_Gravity, false) ;---索敵
+		SetModeEx( OwnerID() , EM_SetModeType_Searchenemy, false) ;---索敵
+		Addbuff( OwnerID() , OwnerID() ,30006366 ,1 ,-1);
+
+		--[[PlayMotionEX(OwnerID(),34000098,34000098,0);
+		MoveToFlagEnabled( OwnerID() , true ) ;
+		DisableCollisionBox(13,RoomID,0) --關閉白盒子劇情 ]]
+	end	
+	Lua_MoveToFlag( OwnerID() , 45000358 , 1 , 0 );--回歸原位130821 K.J. Aris
+end
+
+
+function BG_70000471_BossUnlockDoor()                               ------------------  BOSS 死亡 把門刪掉
+	local zoneID =  ReadRoleValue(  OwnerID() ,EM_RoleValue_ZoneID);   --------  檢查ZONEID 
+	if zoneID  >= 300 and zoneID  <= 399  then
+		BG_70000486_BossDie();
+		haku_318_Sraredragon_call();
+	end
+end
+
+
+function ai_70000471_ai_Run( owner , mainProc )
+	sleep(1);
+	
+	while true do 
+		if( not owner:IsAttack() )then
+			return;
+		end
+
+		if( owner:IsCanCast() )then
+			local tickCount = GetTickCount();
+			owner.elapsedTime = (tickCount-owner.lastTickCount)/1000;
+			owner.lastTickCount = tickCount;
+			
+			--取得仇恨列表
+			ai_UpdateHateListEX(owner);--130821 K.J. Aris
+			if ( #owner.hateList > 0 ) then	-- 指定攻擊目標(仇恨最高)
+				for i = 1, #owner.hateList do
+					if ( ai_SetAttack( owner, owner.hateList[i] ) ) then
+						break;
+					end
+				end
+			end
+			
+			if( owner.hateListCount == 0 )then
+			--	return false;
+			end
+			
+			local xxx= owner.hateListCount 
+		---	DebugMsg(0,"test"..xxx);
+		
+			if( mainProc )then
+				mainProc( owner );
+			end
+						
+			local baseScore = 0;
+			local baseEvent = nil;
+			local nowScore;
+			local nowEvent;
+
+			for i,v in pairs( owner.events ) do
+				nowEvent = v;
+				if( nowEvent.cooldownTimer and nowEvent.cooldownTimer > owner.elapsedTime )then
+					nowEvent.cooldownTimer = nowEvent.cooldownTimer - owner.elapsedTime;
+				else
+					nowScore = nowEvent._event.OnCelPriority( owner, nowEvent );
+					if( nowScore > baseScore )then
+						baseScore = nowScore;
+						baseEvent = nowEvent;
+					end				
+				end
+			end	
+			
+			if( baseEvent )then
+				baseEvent._event.OnExecute( owner, baseEvent );
+				
+				if( baseEvent.cooldown )then
+					baseEvent.cooldownTimer = baseEvent.cooldown;
+				end
+			end	
+		end
+		
+		sleep(1)
+	end
+
+end--ai_70000471_ai_Run

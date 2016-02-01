@@ -1,0 +1,597 @@
+--------------------for NPC 10011160
+--author : K.J. Aris
+--version : 13.08.19.14.29
+
+
+function ai_70000775_Akon_Table()
+	local ai_EventInfos = {};
+	
+	ai_EventInfos["火沙衝撞"] =
+{
+	OnInit = function(owner,data)
+		data.cooldown = 12;
+	end,
+	OnCelPriority = function(owner,data)
+				
+		data.target = ai_SearchEnemy_Line(owner,700,60);
+		if( not data.target )then
+			return 0;
+		end
+		
+		if  (BG_70000416_RandSkillValue(100,35)) == true then   --------------  35% 隨機目標
+			local TarTemp = #owner.hateList;
+			local	Tar = Rand(TarTemp) + 1;
+			data.target = owner.hateList[Tar];
+		end 
+		
+		if( GetDistanceEX( owner:GUID(), data.target:GUID() ) < 70 )then
+			return 0;
+		end
+		data.randvalue = rand(40)+50;
+		return data.randvalue;
+	end,
+
+	OnExecute = function(owner,data)
+		--AI會卡住   主要問題可能在這串當中     當有目標死亡  重生  的時候    會使AI卡住     可能是目標錯誤造成     需抓漏    --130814	K.J. Aris
+		--owner:Yell( "run begin" );	
+		
+		local hitedList = {};
+		
+		ai_RatateToTarget( owner, data.target, 0.5 );
+		
+		--local check = ai_checkcollide(owner:GUID(),0.5,80)  ;        ---------                 打線檢查
+		local check = ai_checkcollideEX( owner:GUID() , 0.5 , 90 , 30 )  ;        ---------                 打線檢查
+		if  check  == false then 								
+			return 0 ;
+		end
+		--sleep(3)
+		if(ai_sleep(owner,3))then return; end
+		--Addbuff( owner:GUID() , owner:GUID() , 30003712 , 1 , 60 );		----- 加速BUff
+		PlayMotion(  owner:GUID(), 34000091 , 0 );
+		--Sys_CastSpell( owner:GUID(), owner:GUID(), 31001287, 1 );			
+		--sleep(10)
+		if(ai_sleep(owner,18))then return; end
+		Addbuff( owner:GUID() , owner:GUID() , 30003712 , 1 , 60 );		----- 加速BUff
+		local maxAngle = 1; --火車最大轉角
+		local isEnd = false;
+		
+		local bon,magicmove= 0  --  檢查
+		
+		local x, y, z;
+		for i = 1 , 10 do
+			--owner:Yell( "run i = " .. i );	
+			--bk_check_collide_Ex(obj,dir,high,range)
+			if i%5 == 0  then
+				local check = ai_checkcollide(owner:GUID(),0.5,40)  ;        ---------                 打線檢查
+				--DebugMsg(0,"now=i="..i.."......................."..bon);
+				if  check  == false then 								
+					isEnd = true;
+					break;
+				end
+			end	
+			local dist = GetDistanceEX( owner:GUID(), data.target:GUID() );
+			local x, y , z = Com_CelVector( owner:X(), 0,  owner:Z(),  data.target:X(), 0 , data.target:Z() );
+			local deltaDir = com_CalTargetDir( owner:GUID(), data.target:GUID() );
+			--owner:Yell( "run i = " .. i .. " dist = " .. dist .. " deltaDir = " .. deltaDir );	
+			--local Speed = ReadRoleValue( OwnerID() , 	EM_RoleValue_Speed) ;
+			--DebugMsg(0,Speed);
+				
+			if( i ~= 1 )then
+				if( deltaDir > 90 or deltaDir < -90 )then
+					deltaDir = 0;
+					isEnd = true;
+				elseif( deltaDir > maxAngle )then
+					deltaDir = maxAngle;
+				elseif( deltaDir < -maxAngle )then
+					deltaDir = -maxAngle;
+				end
+			end
+			
+			--owner:Yell( "run i = " .. i .. " deltaDir = " .. deltaDir );	
+			
+			local dir = owner:Dir() + deltaDir;
+			x, z = Com_DirToVector(dir);
+						
+			x = x * 200 + owner:X();
+			z = z * 200 + owner:Z();
+			if( isEnd )then
+				PlayMotion(  owner:GUID(), 34000093 , 0 );
+			end			
+			
+			y = data.target:Y() + 10;
+			Move( owner:GUID() , x , y , z );
+			
+
+			if(ai_sleep(owner,2))then return; end	
+			
+			--打所有仇恨列表
+			for i,v in ipairs( owner.hateList ) do
+				
+				local guid = v:GUID();
+				if( not hitedList[guid] )then
+					local _dist = GetDistanceEX( owner:GUID(), guid );
+					if( _dist < 3 )then
+						Sys_CastSpell( owner:GUID(), guid, 31005418, 1 );	
+						hitedList[guid] = 1;
+					end
+				end
+			end
+			
+			if( isEnd )then
+				break;
+			end
+		end
+		
+		CancelBuff( owner:GUID() , 30003712 );
+		--StopMove(  owner:GUID(), true )
+		if( not isEnd )then
+			PlayMotion(  owner:GUID(), 34000093 , 0 );
+		end
+		PlayMotion(  owner:GUID(), 34000093 , 0 );
+		if(ai_sleep(owner,3))then return; end
+		Sys_CastSpell( owner:GUID(), owner:GUID(), 31005418, 1 );	
+		if(ai_sleep(owner,2))then return; end
+		--打所有仇恨列表
+		for i,v in ipairs( owner.hateList ) do
+			local guid = v:GUID();
+			--if( not hitedList[guid] )then
+				local _dist = GetDistanceEX( owner:GUID(), guid );
+				if( _dist < 5 )then
+					Sys_CastSpell( owner:GUID(), guid, 31005418, 1 );	
+					hitedList[guid] = 1;
+				end
+			--end
+		end
+		--sleep(10)
+		if(ai_sleep(owner,14))then return; end
+		CancelBuff( owner:GUID() , 30003712 );
+		--owner:Yell( "run end" );	
+	end,
+	}
+	
+	ai_EventInfos["火沙右轉"] =
+	{
+		OnInit = function(owner,data)
+			data.cooldown = 9;
+		end,
+		OnCelPriority = function(owner,data)
+
+			if( not owner.hateList[1] )then
+				return 0;
+			end
+			
+			local hitedList = {};
+					
+			for i,v in ipairs( owner.hateList ) do	
+				local guid = v:GUID();
+				if( not hitedList[i] )then
+					local _dist = GetDistanceEX( owner:GUID(), guid );
+					if( _dist < 40 )then
+						local angle = com_CalTargetDir( owner:GUID(), guid )  -- 左右轉角度
+						if angle >= 45 and angle <= 135 then 												--  在屁股後面必出
+							data.target = guid;
+							--Lua_FaceTo( owner:GUID() , data.target:GUID() );
+							return 100;
+						end
+					end
+				end
+			end	
+			return 0;
+		end,
+		OnExecute = function(owner,data)
+			--owner:Yell( "Right");
+			--Lua_FaceTo( owner:GUID() , data.target );
+			ai_CastSpell( owner:GUID(), owner:GUID(), 31005421, 10, 2 );
+			if(ai_sleep(owner,16))then return; end
+		end,
+	}
+
+	ai_EventInfos["火沙左轉"] =
+	{
+		OnInit = function(owner,data)
+			data.cooldown = 9;
+		end,
+
+		OnCelPriority = function(owner,data)
+
+			if( not owner.hateList[1] )then
+				return 0;
+			end
+			
+			local hitedList = {};
+					
+			for i,v in ipairs( owner.hateList ) do	
+				local guid = v:GUID();
+				if( not hitedList[guid] )then
+					local _dist = GetDistanceEX( owner:GUID(), guid );
+					if( _dist < 40)then
+						local angle = com_CalTargetDir( owner:GUID(),  guid  )  -- 左右轉角度
+						if angle >= -135 and angle <= -45 then 												--  在屁股後面必出
+							data.target =  guid ;
+							--Lua_FaceTo( owner:GUID() , data.target:GUID() );
+							return 100;
+						end
+					end
+				end
+			end	
+			return 0;
+		end,
+
+		OnExecute = function(owner,data)
+			--owner:Yell( "Left");
+			--Lua_FaceTo( owner:GUID() , data.target );
+			ai_CastSpell( owner:GUID(), owner:GUID(), 31005420, 10, 2 );
+			if(ai_sleep(owner,16))then return; end
+			
+		end,
+	}
+	
+	ai_EventInfos["火沙威嚇"] =
+	{
+		OnInit = function(owner,data)
+			
+			data.cooldown = 5;
+			
+		end,
+
+		OnCelPriority = function(owner,data)
+						
+			data.randvalue = rand(30)+50;
+			return data.randvalue;
+		end,
+
+		OnExecute = function(owner,data)
+			--owner:Yell( "Threat");
+			--Lua_FaceTo( owner:GUID() , data.target:GUID() );
+			ai_CastSpell( owner:GUID(), owner:GUID(), 31005419, 10, 2 );	  ---  表演威嚇動作		
+			if(ai_sleep(owner,10))then return; end
+		end,
+	}
+	
+	aiEvent_AkonFire_bg = {
+
+		OnInit = function(owner, data, skillID, cooldown, moveRange,  scoreBase, scoreRand)
+			data.skillID = skillID;
+			data.cooldown = cooldown;
+			data.moveRange = moveRange;
+			data.scoreBase = scoreBase;
+			data.scoreRand = scoreRand;
+		end,
+
+		OnCelPriority = function(owner,data)
+			
+			if( not owner.hateList[1] )then
+				return 0;
+			end
+			
+			local TarTemp = #owner.hateList;
+			local	Tar = Rand(TarTemp) + 1;
+			data.target = owner.hateList[Tar];
+			
+			if( GetDistanceEX( owner:GUID(), owner.hateList[1]:GUID() ) > data.moveRange )then
+				return 0;
+			end
+			
+			return data.scoreBase + rand(data.scoreRand);
+		end,
+
+		OnExecute = function(owner,data)
+			
+			--owner:Yell( "aiEvent_AkonFire_bg");
+			Lua_FaceTo( owner:GUID() , data.target:GUID() );
+			ai_RatateToTarget( owner, data.target, 0.5 );
+			
+			local dist = GetDistanceEX( owner:GUID(), data.target:GUID() );
+			if( dist > 0 )then
+				ai_MoveToTarget( owner, 0 );
+			end
+			
+			
+			WriteRoleValue( OwnerID() , EM_RoleValue_BallTNPDmgRate + 1 , 1); 
+			
+			if( owner:IsCanCast() )then
+				ai_CastSpell(owner:GUID(), data.target:GUID(), data.skillID,10,2);
+			end
+			
+			--owner:Yell( "aiEvent_AkonFire_bg end");	
+		end,
+	}
+	
+	ai_EventInfos["火沙部位破壞"] =
+	{
+		OnInit = function(owner,data)
+		
+		end,
+		OnCelPriority = function(owner,data)
+			
+			return 200;
+		end,
+		OnExecute = function(owner,data)
+			--owner:Yell( "part broken start" );
+			--PlayMotion(  owner:GUID(), 34000260 , 0 );
+			ai_CastSpell( owner:GUID(), owner:GUID(), 31005422, 10, 2 );	  ---  表演部位破壞動作
+			Addbuff( owner:GUID() , owner:GUID() , 30006763 , 1 , -1 );	
+			sleep(62);
+			SetPaperdollPart( owner:GUID(), "leg", " " );	
+			--owner:Yell( "part broken end" );
+			ai_ClearEvent( owner );
+			PlayMotion(  owner:GUID(), 34000001 , 0 );
+
+			WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 2 );  ---------- 記部位破壞暫存值 0- 沒壞 1- 壞  	130813 -Aris
+
+			ai_CastSpell( owner:GUID(), owner:GUID(), 31005419, 10, 2 );	  ---  表演威嚇動作		
+			if(ai_sleep(owner,10))then return; end
+			ai_MoveToTarget( owner, 10 );
+		end,
+	}
+
+	
+	aiEvent_MeleeAttack_bg_70000775 = {
+		--same as aiEvent_MeleeAttack_bg , only adjust vars of "ai_MoveToTarget"  and add "Lua_FaceTo" when attack -- 130816
+		OnInit = function(owner, data, skillID, cooldown, moveRange,  scoreBase, scoreRand)
+			data.skillID = skillID;
+			data.cooldown = cooldown;
+			data.moveRange = moveRange;
+			data.scoreBase = scoreBase;
+			data.scoreRand = scoreRand;
+		end,
+
+		OnCelPriority = function(owner,data)
+			
+			if( not owner.hateList[1] )then
+				return 0;
+			end
+			--DebugMsg(0,"aiEvent_MeleeAttack_bg")  --08104_DD修改
+			
+			--[[
+			local TarTemp = #owner.hateList;
+			local	Tar = Rand(TarTemp) + 1; 
+			data.target = owner.hateList[Tar];
+			]]  --~0814版本
+			data.target = owner.hateList[1]  --08104_DD修改
+			--DebugMsg(0,"Target = "..data.target:GUID())  --08104_DD修改
+			
+			if( GetDistanceEX( owner:GUID(), owner.hateList[1]:GUID() ) > data.moveRange )then
+				return 0;
+			end
+			
+			return data.scoreBase + rand(data.scoreRand);
+		end,
+
+		OnExecute = function(owner,data)
+		
+			--owner:Yell( "MeleeAttack");
+			
+			ai_RatateToTarget( owner, data.target, 1 );
+			
+			local dist = GetDistanceEX( owner:GUID(), data.target:GUID() );
+			if( dist > 10 )then
+				ai_MoveToTarget( owner, 10 );
+			end
+			
+			if( owner:IsCanCast() )then
+				Lua_FaceTo( owner:GUID() , data.target:GUID() );
+				ai_CastSpell( owner:GUID() , data.target:GUID() , data.skillID , 10 , 2 );
+			end
+			
+			sleep(20)  --0813_DD修改
+			--owner:Yell( "MeleeAttack end");	
+		end,
+	}
+
+
+
+
+	ai_70000775_Akon_Main = function()		----------------------------------------主程式
+		WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 0 ); --起始狀態
+		--WriteRoleValue( OwnerID() , EM_RoleValue_BallTNPDmgRate + 1 , 0); --13.08.14.16.26. del
+
+		local owner = ai_CreateOwner( OwnerID() );
+		--owner:Yell( "ai_10011160_Start Fight" );	
+		local diff = GetInstanceLv(OwnerID() );--取得玩家所在副本難度，簡單=0，正常=1，困難=2
+		local _totalHp =  ReadRoleValue( OwnerID() , EM_RoleValue_Fin_MaxHP );
+		owner:SetModeEx( EM_SetModeType_DisableFaceTarget , true );
+		owner:SetModeEx( EM_SetModeType_DiableAIProc , true );	
+		--WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+2 , (hp/10)*4); --局部破壞為HP的40%--13.08.14.16.26. del
+		--WriteRoleValue( owner:GUID(), EM_RoleValue_BallTNP+3 , (hp/10)*4); --13.08.14.16.26. del
+		local _40PercentTotalHp = _totalHp * 0.4;
+		ai_ClearEvent( owner );
+		
+		owner.Register = -1;
+		local Register1 = 0;
+		local mainProc = function( owner )															---        檢查用函式 每次都會執行
+			--owner:Yell( "flag" );	
+			--WriteRoleValue( OwnerID() , EM_RoleValue_BallTNPDmgRate + 1 , 0);  --13.08.14.16.26. del
+			
+			Register1 =  ReadRoleValue( OwnerID() , EM_RoleValue_Register+1 );
+
+			if( owner:HP() <= _40PercentTotalHp and Register1 == 0 ) then
+				WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 1 );  ---------- 記部位破壞暫存值 0- 沒壞 1- 壞
+				AddBuff( OwnerID() , OwnerID() , 30002568 , 10 , 0 );             ---------------        無敵
+				--owner:Yell( " Yoooo !!   My Leg !!" );
+			end
+
+
+			if( owner.Register ~= Register1 )then		--       CHECK王身上的暫存值是否有變化  當有變化時進行階段轉換
+			
+				owner.Register = Register1;
+						
+				ai_ClearEvent( owner );--階段轉換   須清除上一階段的事件
+				
+				--ai_ClearEvent( owner );
+				if( Register1 == 1 )then--當第一次被破壞時  Register1 = 1
+					ai_InsertEvent( owner, "火沙部位破壞"  , ai_EventInfos["火沙部位破壞"]);--表演第一次破壞動作  並導入第二階段
+				elseif( Register1 == 2 )then	--第二階段  Register1 = 2
+					ai_InsertEvent( owner, "火沙威嚇"  , ai_EventInfos["火沙威嚇"]);
+					--近戰攻擊
+					--ai_InsertEvent( owner, key, aiEvent_MeleeAttack, skillID, cooldown, moveRange,  scoreBase, scoreRand );
+					--skillID 法術ID
+					--cooldown 冷卻時間
+					--moveRange 目標有效範圍
+					--scoreBase 基本分數
+					--scoreRand +隨機分數
+					--EX: ai_InsertEvent( owner, "MeleeAttack", aiEvent_MeleeAttack, 31002240, 300,  25, 50 );
+					ai_InsertEvent( owner, "火沙側砍" ,aiEvent_MeleeAttack_bg_70000775 ,31005415, 3, 300, 40, 40 );
+--					ai_InsertEvent( owner, "火沙丟斧" ,aiEvent_AllRangerAttack_bg,31005417 , 7 , 300 ,40,40);
+					ai_InsertEvent( owner, "火沙直砍" ,aiEvent_AkonFire_bg ,31005413, 3, 150, 40, 40 );
+					ai_InsertEvent( owner, "火沙歌歌" ,aiEvent_MeleeAttack_bg_70000775 ,31005416, 7, 300, 40, 40 );
+					ai_InsertEvent( owner, "火沙砍" ,aiEvent_MeleeAttack_bg_70000775 ,31005412, 3, 300, 60, 0 );
+					--owner:Yell( " ai_10011160_Phase 2" );
+				else--第一階段  Register1 = 0
+					ai_InsertEvent( owner, "火沙右轉"  , ai_EventInfos["火沙右轉"] );	--右砍
+					ai_InsertEvent( owner, "火沙左轉"  , ai_EventInfos["火沙左轉"] );	--左砍
+--					
+					ai_InsertEvent( owner, "火沙威嚇"  , ai_EventInfos["火沙威嚇"]);	--咆嚇
+--					ai_InsertEvent( owner, "火沙衝撞"  , ai_EventInfos["火沙衝撞"]);	--烈焰衝鋒
+--					
+					ai_InsertEvent( owner, "火沙側砍" ,aiEvent_MeleeAttack_bg_70000775 ,31005415, 3, 400, 40, 40 );	--aiEvent_MeleeAttack_bg70000416	--31005415烈焰破空
+--					ai_InsertEvent( owner, "火沙丟斧" ,aiEvent_AllRangerAttack_bg,31005417 , 7 , 300 ,40,40);	--aiEvent_MeleeAttack_bg70000416	--31005417狂斧投擲
+					ai_InsertEvent( owner, "火沙直砍" ,aiEvent_MeleeAttack_bg_70000775 ,31005413, 3, 400, 40, 40 );	--31005413烈焰破擊
+					ai_InsertEvent( owner, "火沙風暴" ,aiEvent_AkonFire_bg ,31005414, 5, 200 , 40, 40 );	--31005414無限風暴
+					ai_InsertEvent( owner, "火沙歌歌" ,aiEvent_MeleeAttack_bg_70000775 ,31005416, 7, 400, 40, 40 );	--31005416熾殺之歌
+					ai_InsertEvent( owner, "火沙砍" ,aiEvent_MeleeAttack_bg_70000775 ,31005412, 3, 400, 60, 0 );	--31005412烈焰斧
+					if diff == 0 then
+						
+					elseif diff == 1 then
+						
+					elseif diff == 2 then
+						
+					end
+					--owner:Yell( " ai_10011160_Phase 1" );
+					
+				end	
+				--owner:Yell( "IT OK" );	
+			end	
+		end
+			
+		--ai_Run(owner,mainProc);
+		ai_70000775_ai_Run( owner , mainProc );
+		--ai_Run(owner);
+		
+		owner:SetModeEx( EM_SetModeType_DisableFaceTarget , false );							------------------  回覆基本AI
+		owner:SetModeEx( EM_SetModeType_DiableAIProc , false);	
+		
+		--owner:Yell( " ai_10011160_End Fight" );		
+	end
+
+end
+
+function BG_70000775_PartBroke()             -----------------       模板填部位破壞觸發事件
+	--ai_Run(owner);
+	-- DebugMsg( 0 ,"Broken" );
+	
+	WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 1 );  ---------- 記部位破壞暫存值 0- 沒壞 1- 壞
+	AddBuff( OwnerID() , OwnerID() , 30002568 , 10 , 0 );             ---------------         截斷BUFF		無敵
+	
+	--WriteRoleValue( OwnerID() , EM_RoleValue_BallTNPDmgRate , 1.5);      -------   受到傷害提升
+	
+	--AddBuff(OwnerID(),OwnerID(),30002601,1,-1);
+end
+
+
+function BG_70000775_BossSwpan()
+	local FireM = Lua_SearchRangeNPC( OwnerID() , 10004616 , 1000 , true); 
+	local job = ReadRoleValue( OwnerID() , EM_RoleValue_JOB);  -- 範圍劇情檢查處發者是否GM													-- GM旗標 0執行 1 不執行	
+	if job == 0 then	                                                       -- 檢查職業 GM = 0
+		return false
+	end
+	local RoomID = ReadRoleValue( OwnerID(), EM_RoleValue_RoomID );
+	DisableCollisionBox(7,RoomID,1) --關閉白盒子劇情 
+	--DebugMsg(0,"fly");
+	
+	SetModeEX(FireM ,EM_SetModeType_ClientHide , false);
+	--PlayMotionEX( FireM , 34000191 , 34000191 ,0);
+	
+	Castspell(FireM  , FireM  , 31004945 ,0);
+	
+end
+
+function BG_70000775_test()
+	Castspell( OwnerID() ,OwnerID() , 31004945 ,10);
+end
+
+function BG_70000775_BossHidden()
+
+	SetModeEX(OwnerID() ,EM_SetModeType_ClientHide , true);
+	
+end
+
+function BG_70000775_BossDie()             ------------                 死亡開起阻擋門
+	local RoomID = ReadRoleValue( OwnerID(), EM_RoleValue_RoomID );   --取得 房間資訊
+	local ObjWell = Lua_SearchRangeNPC( OwnerID(), 10001889 , 1000,true); 
+	SetModeEx( ObjWell ,EM_SetModeType_Obstruct, false); -- 阻擋
+	KillID(ObjWell,ObjWell);
+
+	--Yell( OwnerID() , " ai_10011160_Out Of Battle" );	
+end
+
+
+
+
+
+
+function ai_70000775_ai_Run(owner,mainProc)
+	sleep(1);
+	
+	while true do 
+		if( not owner:IsAttack() )then
+			return;
+		end
+
+		if( owner:IsCanCast() )then
+			local tickCount = GetTickCount();
+			owner.elapsedTime = (tickCount-owner.lastTickCount)/1000;
+			owner.lastTickCount = tickCount;
+			
+			--取得仇恨列表
+			ai_UpdateHateList(owner);
+			if ( #owner.hateList > 0 ) then	-- 指定攻擊目標(仇恨最高)
+				for i = 1, #owner.hateList do
+					if ( ai_SetAttack( owner, owner.hateList[i] ) ) then
+						break;
+					end
+				end
+			end
+			
+			if( owner.hateListCount == 0 )then
+			--	return false;
+			end
+			
+			local xxx= owner.hateListCount 
+		---	DebugMsg(0,"test"..xxx);
+		
+			if( mainProc )then
+				mainProc( owner );
+			end
+						
+			local baseScore = 0;
+			local baseEvent = nil;
+			local nowScore;
+			local nowEvent;
+
+			for i,v in pairs( owner.events ) do
+				nowEvent = v;
+				if( nowEvent.cooldownTimer and nowEvent.cooldownTimer > owner.elapsedTime )then
+					nowEvent.cooldownTimer = nowEvent.cooldownTimer - owner.elapsedTime;
+				else
+					nowScore = nowEvent._event.OnCelPriority( owner, nowEvent );
+					if( nowScore > baseScore )then
+						baseScore = nowScore;
+						baseEvent = nowEvent;
+					end				
+				end
+			end	
+			
+			if( baseEvent )then
+				baseEvent._event.OnExecute( owner, baseEvent );
+				
+				if( baseEvent.cooldown )then
+					baseEvent.cooldownTimer = baseEvent.cooldown;
+				end
+			end	
+		end
+		
+		sleep(1)
+	end
+
+end--ai_70000775_ai_Run

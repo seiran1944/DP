@@ -1,0 +1,589 @@
+--$Version=96505
+--$Version=74014
+
+
+
+--更新仇恨表
+function ai_UpdateHateList( owner )
+
+	owner.hateListCount = HateListCount( owner:GUID() ); --取得仇恨表物件數量
+	owner.hateList = {};
+	
+	local guid;
+	local hate;
+	local list = {};
+
+	for i = 1 ,owner.hateListCount do
+	
+		guid = HateListGUID( owner:GUID(), i - 1 );
+		hate = HateListInfo( owner:GUID(), i - 1, EM_HateListInfoType_HatePoint );
+	
+		--if( ReadRoleValue( guid, EM_RoleValue_IsPlayer ) == 1 )then
+			local info = {};
+			info.guid = guid;
+			info.hate = hate;
+			table.insert( list, info );
+		--end
+	end
+	
+	--仇恨表排序
+	function ai_UpdateHateList_HateSort( a , b )
+		if( a.hate > b.hate )then
+			return true;
+		end
+		return false;
+	end
+		
+	--排序
+	table.sort( list, ai_UpdateHateList_HateSort );
+	
+	for i,v in ipairs( list ) do
+		table.insert( owner.hateList, Role:new( v.guid ) );
+	end
+end
+
+--施法
+function ai_CastSpell(Orgid,TarID,Magiceid,MagiceLv,timax)
+	local x = 0
+	timax = timax * 2
+	local ti = 0
+	local tie = 0
+	--MagiceLv = ReadRoleValue( OwnerID() , EM_RoleValue_LV ) ;     ---------- BOSS強制取等級加成 大神
+	while Castspell( Orgid , TarID , Magiceid , MagiceLv ) == false do
+		sleep(1)
+		ti = ti +1 
+		if ti >= timax then 
+			--給免疫buff 2秒		
+			AddBuff(Orgid , Orgid , 30001713 , 1 , 3)---關ai 
+			tie = tie +1 
+			if tie >= 15 then 
+				Castspell( Orgid , TarID , Magiceid , MagiceLv )
+				break 
+			end
+		end
+	end
+	return 1
+end
+
+--旋轉面向目標  ( forecastTime = 要預測多久後目標的位置 )
+function ai_RatateToTarget( owner, target, forecastTime )
+
+	if( forecastTime and forecastTime > 0.01 )then
+		local angle = com_CalTargetDir( owner:GUID(),  target:GUID() )  -- 左右轉角度
+		local futureAngle = com_CalFutureTargetDir( owner:GUID(),  target:GUID(), forecastTime )  -- 左右轉角度
+		if( angle >= 15 or angle <= -15 ) and ( futureAngle >= 15 or futureAngle <= -15 )then 
+		
+			angle = futureAngle;
+			local targetDir;
+			if( angle > 0 )then
+				angle = angle + 1;
+			else
+				angle =  angle - 1;
+			end
+			
+			targetDir = owner:Dir( ) +  angle;
+			local time = SetDir( owner:GUID(), targetDir );
+			
+			--owner:Yell( "Ratate sleep " .. time);
+			--sleep(time)
+			owner:WaitRotating( );	
+			
+			--owner:Yell( "Ratate sleep end");
+		end
+	else
+		local angle = com_CalTargetDir( owner:GUID(), target:GUID() )  -- 左右轉角度
+		if angle >= 15 or angle <= -15 then 
+			Face( owner:GUID() , target:X(), target:Z() );
+			owner:WaitRotating( );
+		end		
+	end
+		
+end
+			
+			
+
+--移動到目標  ( dist = 0 移動到碰撞距離 )
+function ai_MoveToTarget( owner, dist )
+
+	MoveAI( owner:GUID(), EM_MoveAIType_KeepDest, dist ); 
+	owner:WaitMoving();
+
+end
+
+
+--建立ai用Owner物件
+function ai_CreateOwner( guid )
+
+	local owner = Role:new( guid );
+	owner.hateListCount = 0;						--仇恨表物件數量
+	owner.hateList = {};							--仇恨表	
+	owner.elapsedTime = 0;						--每次Update的時間
+	owner.lastTickCount = GetTickCount();	--
+	owner.events = {};	
+	
+	return owner;
+
+end
+
+--清除ai事件
+function ai_ClearEvent( owner )
+	owner.events = {};
+end
+
+--加入ai事件
+function ai_InsertEvent( owner, key, event, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 )
+	owner.events[key] = {};
+	owner.events[key]._event = event;
+	owner.events[key]._event.OnInit( owner, owner.events[key], arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 ); --初始化參數
+end
+
+--移除ai事件
+function ai_RemoveEvent( owner, key )
+	
+	owner.events[key] = nil;
+
+end
+
+--AI主迴圈
+function ai_Run(owner,mainProc)
+	sleep(1);
+	
+	while true do 
+		if( not owner:IsAttack() )then
+			return;
+		end
+
+		if( owner:IsCanCast() )then
+			local tickCount = GetTickCount();
+			owner.elapsedTime = (tickCount-owner.lastTickCount)/1000;
+			owner.lastTickCount = tickCount;
+			
+			--取得仇恨列表
+			ai_UpdateHateList(owner);
+			if( owner.hateListCount == 0 )then
+			--	return false;
+			end
+			
+			local xxx= owner.hateListCount 
+		---	DebugMsg(0,"test"..xxx);
+		
+			if( mainProc )then
+				mainProc( owner );
+			end
+						
+			local baseScore = 0;
+			local baseEvent = nil;
+			local nowScore;
+			local nowEvent;
+
+			for i,v in pairs( owner.events ) do
+				nowEvent = v;
+				if( nowEvent.cooldownTimer and nowEvent.cooldownTimer > owner.elapsedTime )then
+					nowEvent.cooldownTimer = nowEvent.cooldownTimer - owner.elapsedTime;
+				else
+					nowScore = nowEvent._event.OnCelPriority( owner, nowEvent );
+					if( nowScore > baseScore )then
+						baseScore = nowScore;
+						baseEvent = nowEvent;
+					end				
+				end
+			end	
+			
+			if( baseEvent )then
+				baseEvent._event.OnExecute( owner, baseEvent );
+				
+				if( baseEvent.cooldown )then
+					baseEvent.cooldownTimer = baseEvent.cooldown;
+				end
+			end	
+		end
+		
+		sleep(1)
+	end
+
+end
+
+function ai_sleep(owner,time)
+
+	local DisableCastStateList = {
+		EM_RoleValue_MagicEffect + EM_MagicEffectType_Stop,
+		EM_RoleValue_MagicEffect + EM_MagicEffectType_UseMagicDisable, --不可用法術攻擊
+		EM_RoleValue_MagicEffect + EM_MagicEffectType_UsePhyDisable    --不可用物理攻擊
+	}
+
+	local i = 0;
+	while( i < time )do
+		
+		for i,v in ipairs( DisableCastStateList ) do
+			if( ReadRoleValue(owner:GUID(),v) == 1 )then
+				return true;
+			end
+		end
+		sleep(1)
+		i = i + 1;
+	end
+	return false;
+end
+
+function ai_checkcollide(owner,sec,bodylength)                              ----------  打線檢查用函式 填(使用者 ,幾秒檢查一次(最低0.5), 身長)
+	local Speed = ReadRoleValue( owner , EM_RoleValue_Speed) ;
+	sec = sec + 0.2 ; 																	-------   多檢查0.2秒怕卡牆
+	local SecSpeed = Speed*sec ;
+	local range = SecSpeed + bodylength;
+	bon = bk_check_collide(owner,0,range) ; 		-----檢查移動過去是否會有機會碰到阻擋物件-(此函是檢察高度為一個人高大概15左右)
+	if bon == 0 then
+		return false ;
+	else
+		return true ;
+	end	
+end
+
+function ai_checkcollideEX(owner,sec,bodylength,high)                              ----------  打線檢查用函式 填(使用者 ,幾秒檢查一次(最低0.5), 身長)
+	local Speed = ReadRoleValue( owner , EM_RoleValue_Speed) ;
+	sec = sec + 0.2 ; 																	-------   多檢查0.2秒怕卡牆
+	local SecSpeed = Speed*sec ;
+	local range = SecSpeed + bodylength;
+	bon = bk_check_collide_Ex(owner,0,high,range)  ; 		-----檢查移動過去是否會有機會碰到阻擋物件-(此函是檢察高度為一個人高大概15左右)
+	if bon == 0 then
+		return false ;
+	else
+		return true ;
+	end	
+end
+
+function ai_checkcollideDirEX(owner,sec,bodylength,high,Dir)                              ----------  打線檢查用函式 填(使用者 ,幾秒檢查一次(最低0.5), 身長)
+	local Speed = ReadRoleValue( owner , EM_RoleValue_Speed) ;
+	sec = sec + 0.2 ; 																	-------   多檢查0.2秒怕卡牆
+	local SecSpeed = Speed*sec ;
+	local range = SecSpeed + bodylength;
+	bon = bk_check_collide_dir_Ex(owner,0,high,range,Dir)  ; 		-----檢查移動過去是否會有機會碰到阻擋物件-(此函是檢察高度為一個人高大概15左右)
+	if bon == 0 then
+		return false ;
+	else
+		return true ;
+	end	
+end
+
+function bk_check_collide_dir_Ex(obj,dir,high,range,dir)    ------變動高度
+	local x,y,z,dir = Lua_GetPositionByObj( obj , dir , range ) 
+	local x0 , y0 , z0 = ReadRoleValue( obj , EM_RoleValue_X ) , ReadRoleValue( obj , EM_RoleValue_Y ) , ReadRoleValue( obj , EM_RoleValue_Z )   
+	local RoomID = ReadRoleValue( OwnerID(), EM_RoleValue_RoomID );
+
+	y= y+high
+	y0= y0+high
+	if CheckLineEx(x0,y0,z0,x,y,z) == true then 
+		return 1 
+	elseif CheckLine(obj,x,y,z) == false then 
+		return 0
+	end
+end
+
+--ai event
+--[[
+aiEvent_Example = {
+	OnInit = function(owner,data,arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8)           --初始化
+
+	end,
+	OnCelPriority = function(owner,data)  --計算分數
+
+	end,
+	OnExecute = function(owner,data)     --執行
+
+	end,
+}
+
+cooldown功能
+	data.cooldown = 秒數
+--]]
+
+--ai 通用 事件 common event
+
+--近戰攻擊
+--ai_InsertEvent( owner, key, aiEvent_MeleeAttack, skillID, cooldown, moveRange,  scoreBase, scoreRand );
+--skillID 法術ID
+--cooldown 冷卻時間
+--moveRange 目標有效範圍
+--scoreBase 基本分數
+--scoreRand +隨機分數
+--EX: ai_InsertEvent( owner, "MeleeAttack", aiEvent_MeleeAttack, 31002240, 300,  25, 50 );
+aiEvent_MeleeAttack = {
+
+	OnInit = function(owner, data, skillID, cooldown, moveRange,  scoreBase, scoreRand)
+		data.skillID = skillID;
+		data.cooldown = cooldown;
+		data.moveRange = moveRange;
+		data.scoreBase = scoreBase;
+		data.scoreRand = scoreRand;
+	end,
+	OnCelPriority = function(owner,data)
+		
+		if( not owner.hateList[1] )then
+			return 0;
+		end
+		
+		if( GetDistanceEX( owner:GUID(), owner.hateList[1]:GUID() ) > data.moveRange )then
+			return 0;
+		end
+		data.target = owner.hateList[1];
+		return data.scoreBase + rand(data.scoreRand);
+	end,
+	OnExecute = function(owner,data)
+	
+		owner:Yell( "MeleeAttack");
+		
+		ai_RatateToTarget( owner, data.target, 1 );
+		
+		local dist = GetDistanceEX( owner:GUID(), data.target:GUID() );
+		if( dist > 10 )then
+			ai_MoveToTarget( owner, 0 );
+		end
+		
+		if( owner:IsCanCast() )then
+			ai_CastSpell(owner:GUID(), data.target:GUID(), data.skillID,10,2);
+		end
+		
+		owner:Yell( "MeleeAttack end");	
+	end,
+}
+
+--遠程攻擊
+aiEvent_RangedAttack = {
+	OnInit = function(owner,data)
+
+	end,
+	OnCelPriority = function(owner,data)
+
+	end,
+	OnExecute = function(owner,data)
+
+	end,
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--以下測試
+
+local ai_EventInfos = {};
+ai_EventInfos["右轉攻擊"] =
+{
+	OnInit = function(owner,data)
+
+	end,
+	OnCelPriority = function(owner,data)
+
+		if( not owner.hateList[1] )then
+			return 0;
+		end
+		
+		if( GetDistanceEX( owner:GUID(), owner.hateList[1]:GUID() ) > 50 )then
+			return 0;
+		end
+		
+		local angle = com_CalTargetDir( owner:GUID(), owner.hateList[1]:GUID() )  -- 左右轉角度
+		
+		if angle >= 45 and angle <= 135 then 
+			data.target = owner.hateList[1];
+			return 100;
+		end
+
+		return 0;
+	end,
+	OnExecute = function(owner,data)
+		ai_CastSpell( owner:GUID(), data.target:GUID(), 31002240, 10, 2 );
+	end,
+}
+
+ai_EventInfos["蠻橫攻擊"] =
+{
+	OnInit = function(owner,data)
+
+	end,
+	OnCelPriority = function(owner,data)
+		if( not owner.hateList[1] )then
+			return 0;
+		end
+		
+		if( GetDistanceEX( owner:GUID(), owner.hateList[1].guid ) > 300 )then
+			return 0;
+		end
+		data.target = owner.hateList[1];
+		return 50;
+	end,
+	OnExecute = function(owner,data)
+		
+		local angle = com_CalTargetDir( owner:GUID(),  data.target:GUID() )  -- 左右轉角度
+		if angle >= 15 or angle <= -15 then 
+			local time = Face( owner:GUID() , data.target:X() , data.target:Z() );
+			sleep(time+1); 
+		end
+		
+		ai_MoveToTarget( owner:GUID(), 0 );
+		
+		if( owner:IsCanCast() )then
+			ai_CastSpell( owner:GUID(), data.target:GUID(), 31002241, 10, 2 );
+		end
+	end,
+}
+
+ai_EventInfos["ai 1"] =
+{
+	OnInit = function(owner,data)
+
+	end,
+	OnCelPriority = function(owner,data)
+		data.randvalue = rand(100);
+		return data.randvalue;
+	end,
+	OnExecute = function(owner,data)
+	
+		owner:Yell( "ai 1 test " .. data.randvalue );
+		
+		ai_RemoveEvent( owner, "ai 1" )		
+		ai_InsertEvent( owner, "ai 2" , ai_EventInfos["ai 2"] );
+		
+		sleep(5)
+	end,
+}
+
+ai_EventInfos["ai 2"] =
+{
+	OnInit = function(owner,data)
+
+	end,
+	OnCelPriority = function(owner,data)
+		data.randvalue = rand(100);
+		return data.randvalue;
+	end,
+	OnExecute = function(owner,data)
+	
+		owner:Yell( "ai 2 test " .. data.randvalue );
+		
+		ai_RemoveEvent( owner, "ai 2" )		
+		ai_InsertEvent( owner, "ai 3" , ai_EventInfos["ai 3"] );
+		
+		sleep(5)
+	end,
+}
+
+ai_EventInfos["ai 3"] =
+{
+	OnInit = function(owner,data)
+
+	end,
+	OnCelPriority = function(owner,data)
+		data.randvalue = rand(100);
+		return data.randvalue;
+	end,
+	OnExecute = function(owner,data)
+	
+		owner:Yell( "ai 3 test " .. data.randvalue );
+		
+		ai_RemoveEvent( owner, "ai 3" )		
+		ai_InsertEvent( owner, "ai 4" , ai_EventInfos["ai 4"] );
+		
+		sleep(5)
+		
+	end,
+}
+
+ai_EventInfos["ai 4"] =
+{
+	OnInit = function(owner,data)
+
+	end,
+	OnCelPriority = function(owner,data)
+		data.randvalue = rand(100);
+		return data.randvalue;
+	end,
+	OnExecute = function(owner,data)
+	
+		owner:Yell( "ai 4 test " .. data.randvalue );
+		
+		ai_RemoveEvent( owner, "ai 4" )		
+		ai_InsertEvent( owner, "ai 1" , ai_EventInfos["ai 1"] );
+		
+		sleep(5)
+	end,
+}
+
+ai_EventInfos["ai 5"] =
+{
+	OnInit = function(owner,data)
+
+	end,
+	OnCelPriority = function(owner,data)
+		data.randvalue = rand(100);
+		return data.randvalue;
+	end,
+	OnExecute = function(owner,data)
+	
+		owner:Yell( "ai 5 test " .. data.randvalue );
+		
+		sleep(5)
+	end,
+}
+
+--招式table
+ai_EventInfos["ai 6"] =
+{
+	OnInit = function(owner,data)
+
+	end,
+	OnCelPriority = function(owner,data)
+		data.randvalue = rand(100);
+		return data.randvalue;
+	end,
+	OnExecute = function(owner,data)
+	
+		owner:Yell( "ai 6 test " .. data.randvalue );
+		
+		sleep(5)
+	end,
+}
+
+function ai_test_20120816()
+
+
+	local owner = ai_CreateOwner( OwnerID() );
+	owner:Yell( "ai_test_20120816" );	
+	
+	owner:SetModeEx( EM_SetModeType_DisableFaceTarget , true );
+	owner:SetModeEx( EM_SetModeType_DiableAIProc , true );	
+	
+	ai_ClearEvent( owner );
+	--ai_InsertEvent( owner, "右轉攻擊", ai_EventInfos["右轉攻擊"] );
+	--ai_InsertEvent( owner, "蠻橫攻擊", ai_EventInfos["蠻橫攻擊"] );
+	ai_InsertEvent( owner, "ai 1"  , ai_EventInfos["ai 1"]         );
+	ai_InsertEvent( owner, "普攻"  , aiEvent_MeleeAttack, 31002241, 5, 300, 20, 50  );
+
+	mainProc = function( owner ) --部位破壞檢查 每招都檢查 0正常 1破壞
+	
+		ai_RemoveEvent( owner, "ai 5" )	
+		ai_RemoveEvent( owner, "ai 6" )	
+		
+		if( rand(100) >= 50 )then
+		
+			ai_InsertEvent( owner, "ai 5"  , ai_EventInfos["ai 5"] );
+		else
+		
+			ai_InsertEvent( owner, "ai 6"  , ai_EventInfos["ai 6"] );
+		end
+	
+	end
+
+	ai_Run(owner,mainProc);
+	owner:Yell( "ai_test_20120816 end" );		
+end

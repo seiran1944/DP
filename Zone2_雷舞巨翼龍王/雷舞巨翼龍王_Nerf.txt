@@ -1,0 +1,298 @@
+function ai_70000585_LightDance_table()
+	local ai_EventInfos = {};
+	
+	ai_EventInfos["雷舞定人"] =
+	{
+		OnInit = function(owner,data)
+			data.cooldown = 10;
+			
+			--DeBugMsg(0,"test....1");
+		end,
+		OnCelPriority = function(owner,data)
+			
+			--DebugMsg(0, IceTar );
+
+			data.target = ai_SearchEnemy_Line(owner,500,60);
+			if( not data.target )then
+				return 0;
+			end
+			
+			data.randvalue = 75;
+			return data.randvalue;
+		end,
+		OnExecute = function(owner,data)	
+			local hitedList = {};
+			local buffFly = false ;
+			--sleep(19);
+			local dis = 	Lua_GetFlagDistance(owner:GUID(),45000994,0) ;
+			if dis > 35 then
+				return 0 ;
+			end
+			ai_CastSpell( owner:GUID(),owner:GUID(), 31006903, 10, 2 );
+			sleep(12);
+			for i,v in ipairs( owner.hateList ) do	
+				local guid = v:GUID();
+				if( not hitedList[guid] )then
+					local _dist = GetDistanceEX( owner:GUID(), guid );
+					if( _dist < 20 )then
+						--DebugMsg(0,_dist )				
+						AttachObj(data.target:GUID() ,owner:GUID(),1) ;
+						buffFly = true ;
+
+					end
+				end
+			end		
+			--DebugMsg(0,"attach");
+			sleep(28)
+			if buffFly then
+				DetachObj(data.target:GUID()) ;
+				local x,y,z,dir = Lua_GetPositionByObj( OwnerID() , 0 , 70 ); 
+				SpecialMove( data.target:GUID() , 0 , x , y  ,z , -dir );                              ------------------------做招式  位移使用特殊移動衝鋒做 
+				AddBuff(data.target:GUID(),owner:GUID(),30004333,10,-1);
+			end	
+
+			sleep(13)
+		end,
+	}
+	
+	
+	ai_EventInfos["雷舞威嚇"] =
+	{
+			OnInit = function(owner,data)
+				
+				data.cooldown = 5;	
+			end,
+			OnCelPriority = function(owner,data)			
+				data.randvalue = 200+ Rand(50);
+				return data.randvalue;
+			end,
+			OnExecute = function(owner,data)	
+				if (data.randvalue > 201 and data.randvalue < 225) then					--- 隨機表演其中一個IDLE
+					--PlayMotion(  owner:GUID(), 31007788, 0 );
+					PlayMotion(  owner:GUID(), 34000098, 0 );
+					if(ai_sleep(owner,45))then return; end
+				elseif	(data.randvalue > 226 and data.randvalue <250) then
+					--PlayMotion(  owner:GUID(),31007549 , 0 );
+					PlayMotion(  owner:GUID(),34000268 , 0 );
+					if(ai_sleep(owner,30))then return; end
+				end
+			end,
+		}
+	
+	aiEvent_LightDanceAttack_bg = {             -------------------------------遠攻有目標
+
+		OnInit = function(owner, data, skillID, cooldown, moveRange,  scoreBase, scoreRand)
+			data.skillID = skillID;
+			data.cooldown = cooldown;
+			data.moveRange = moveRange;
+			data.scoreBase = scoreBase;
+			data.scoreRand = scoreRand;
+		end,
+		OnCelPriority = function(owner,data)
+			
+			if( not owner.hateList[1] )then
+				return 0;
+			end
+			
+			--[[if( GetDistanceEX( owner:GUID(), owner.hateList[1]:GUID() ) > data.moveRange )then
+				return 0;
+			end ]]--
+			local TarTemp = #owner.hateList;
+			local	Tar = Rand(TarTemp) + 1;
+			data.target = owner.hateList[Tar];
+			
+			return data.scoreBase + rand(data.scoreRand);
+		end,
+		OnExecute = function(owner,data)
+					
+			if( owner:IsCanCast() )then
+				ai_CastSpell(owner:GUID(), data.target:GUID(), data.skillID,10,2);
+			end
+			
+			local tonedoR = Rand(100)+1;
+			if tonedoR > 50 then
+					BeginPlot(OwnerID() , "BG_70000585_BossTonedo" , 0 );
+				end	
+
+				sleep(10);
+		end,
+	}
+	
+
+
+	ai_70000585_LightDance_Main = function()               							----------------------------------------主程式
+		WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 0 ); 
+
+		local owner = ai_CreateOwner( OwnerID() );
+		----owner:Yell( "ai_11000262_test" );	
+		local diff = GetInstanceLv(OwnerID() );--取得玩家所在副本難度，簡單=0，正常=1，困難=2
+	
+		
+		owner:SetModeEx( EM_SetModeType_DisableFaceTarget , true );
+		owner:SetModeEx( EM_SetModeType_DiableAIProc , true );	
+		
+		ai_ClearEvent( owner );
+		
+		owner.Register = -1;
+		
+		local mainProc = function( owner )
+			--owner:Yell( "flag" );	
+			
+			local Register1 =  ReadRoleValue( OwnerID() , EM_RoleValue_Register+1 );
+			--local Target = GetRoleINT64( OwnerID() ,EM_SetGUIDEventType_AttackTargetGUID);
+			--local job =  ReadRoleValue( Target , EM_RoleValue_JOB );
+			if( owner.Register ~= Register1 )then
+			
+				owner.Register = Register1;
+						
+				ai_ClearEvent( owner );
+				
+				if( Register1 == 1 )then                            ----------------------------------------部位破壞時觸發
+					
+
+					--owner:Yell( "BROKENNNNNNN!!!!" );	
+				elseif ( Register1 == 2 )then 
+
+				
+				else														----------------------------------------部位破壞前
+					
+				--	ai_InsertEvent( owner, "雷舞定人" ,ai_EventInfos["雷舞定人"] ) ;
+					--------------------Nerf 130819 K.J. Aris
+					ai_InsertEvent( owner, "雷舞裂鋒斬" , aiEvent_LightDanceAttack_bg , 31006902 , 15, 100 , 40 , 40);
+					ai_InsertEvent( owner, "雷舞振翅" ,aiEvent_LightDanceAttack_bg , 31006904 , 23, 200 , 40 , 40);
+					ai_InsertEvent( owner, "雷舞憤怒" ,aiEvent_LightDanceAttack_bg , 31006906 , 60, 100 , 40 , 40);
+					ai_InsertEvent( owner, "雷舞吐息" ,aiEvent_LightDanceAttack_bg , 31006907 , 5, 300 , 40 , 40);
+
+					ai_InsertEvent( owner, "雷舞咬" , aiEvent_MeleeAttack_bg, 31006908 , 3, 300 , 60 , 0);	
+					ai_InsertEvent( owner, "雷舞跳" , aiEvent_MeleeAttack_bg, 31006909 , 15, 300 , 40 , 30);	
+					ai_InsertEvent( owner, "雷舞甩尾" , aiEvent_MeleeAttack_bg, 31006905 , 7, 300 , 40 , 40);	
+						ai_InsertEvent( owner, "雷舞威嚇" ,ai_EventInfos["雷舞威嚇"]	);
+
+				end	
+			end
+		end
+			
+		--ai_Run(owner,mainProc);
+		ai_70000775_ai_Run( owner , mainProc );--130819 K.J. Aris
+		--ai_Run(owner);
+			
+		owner:SetModeEx( EM_SetModeType_DisableFaceTarget , false);
+		owner:SetModeEx( EM_SetModeType_DiableAIProc , false);	
+		--owner:Yell( "ai_11000262 end" );		
+	end
+
+end
+
+function BG_70000585_BossTonedoStart()
+	BeginPlot(OwnerID() , "BG_70000585_BossTonedo" , 0 );
+end
+
+function BG_70000585_BossTonedo()       -- BOSS 場地 隨機施放 三個冰柱
+	local x,y,z,dir = Lua_GetPositionByObj( OwnerID() , 0 , 0 );
+	local randomX = 0;
+	local randomZ = 0;
+	local RoomID = ReadRoleValue( OwnerID(), EM_RoleValue_RoomID );
+	local diff = GetInstanceLv(OwnerID()) ;
+	local HateList = {};	--仇恨表
+	local CombatBegin = 0 ;		--0.開 1.關 (AI控制)
+	local boss=OwnerID();
+	
+	local x,y,z,dir = Lua_GetPositionByObj( boss , 0 , 250 );
+	
+	local THcount = 1;
+	local  ThoundD = 11001192;
+	if diff == 0 then
+		ThoundD = 11001192;
+
+	elseif diff == 1 then
+		ThoundD = 11001192;
+
+	elseif diff == 2 then
+		ThoundD = 11001192;
+
+	end	
+	
+	local diff = GetInstanceLv(OwnerID()) ;
+	if diff == 2 then
+		THcount =  3 ;
+		
+	end
+	
+	local THdragon = {};
+	
+	for i = 1 , THcount do
+
+		THdragon[i] = CreateObj( ThoundD , x,y,z, 0 );  --- 招換隱形龍 施放場地魔法 追蹤冰柱
+		SetModeEx(THdragon[i] , EM_SetModeType_Show, false ) ;---顯示
+		SetModeEx( THdragon[i] , EM_SetModeType_Move, false) ;---移動	
+		SetModeEx( THdragon[i], EM_SetModeType_Gravity, true ); ---重力	
+		SetModeEx( THdragon[i] , EM_SetModeType_Mark, false ) ;---點選		
+		SetModeEx( THdragon[i] , EM_SetModeType_ShowName, false ); ---名稱
+		SetModeEx( THdragon[i] , EM_SetModeType_Strikback, true) ;---反擊
+		SetModeEx( THdragon[i] , EM_SetModeType_Fight, false) ;---可砍殺
+		AddtoPartition( THdragon[i] , RoomID );
+		Beginplot(THdragon[i], "BG_Instance_dif3_LV" , 0);
+	--SetAttack( dragon2 , Players[1]  ) ;
+		AddBuff(THdragon[i], THdragon[i] , 30005839 , 1 , -1);
+		CastSpell( THdragon[i],THdragon[i], 31006954 , 10 ) ;
+		randomX = Rand(200)-100;
+		randomZ = Rand(200)-100;
+		x = x + randomX;
+		z = z + randomZ;
+	--CastSpellPos( dragon2, x   ,y  ,z  , 31002461 , 10 ) ;
+
+	end	
+	
+	sleep(20);
+		
+	for i = 1 , THcount do
+		Delobj(THdragon[i] );
+	end	
+end
+
+function BG_70000585_BossOutPlay()
+	local RoomID = ReadRoleValue( OwnerID(), EM_RoleValue_RoomID );           --  玩家所在房間資訊
+	local job = 	ReadRoleValue( OwnerID() , EM_RoleValue_JOB);  -- 範圍劇情檢查處發者是否GM
+	local gmNoRun = 0;														-- GM旗標 0執行 1 不執行	
+	local diff = GetInstanceLv(OwnerID() );--取得玩家所在副本難度，簡單=0，正常=1，困難=2
+	if job == 0 then	                                                       -- 檢查職業 GM = 0
+		return 0 ;
+	end
+	
+	
+	DisableCollisionBox( 56, RoomID, 1 );  ----   關閉範圍劇情 0 開 1關
+
+	local TDDra ;
+	TDDra = CreateObjByFlag( 11000009 , 45000769, 0 );
+	SetModeEx( TDDra , EM_SetModeType_Show, true ) ;---顯示
+	SetModeEx( TDDra, EM_SetModeType_Move, true) ;---移動	
+	SetModeEx( TDDra , EM_SetModeType_Gravity, true ); ---重力	
+	SetModeEx( TDDra , EM_SetModeType_Mark, true ) ;---點選		
+	SetModeEx( TDDra , EM_SetModeType_ShowName, true ); ---名稱
+	SetModeEx( TDDra , EM_SetModeType_Strikback, true) ;---反擊
+	SetModeEx( TDDra , EM_SetModeType_Fight, true) ;---可砍殺
+	SetModeEx( TDDra , EM_SetModeType_Searchenemy , true) ;---可砍殺
+	AddtoPartition( TDDra , RoomID );
+	Beginplot(TDDra, "BG_Instance_dif3_LV" , 0);
+	
+	CastSpell(TDDra , TDDra , 31006903 ,0);
+end
+
+------------------------------------------ 阻擋門相關    大神----------------------------------------
+
+function BG_70000585_BossUnlockDoor()                               ------------------  BOSS 死亡 把門刪掉
+	local zoneID =  ReadRoleValue(  OwnerID() ,EM_RoleValue_ZoneID);   --------  檢查ZONEID 
+	if zoneID  >= 300 and zoneID  <= 399  then
+		BG_70000486_BossDie();
+		dd_301_Sraredragon_call();
+	end	
+
+end
+
+function BG_70000585_OverUnlockDoor()                               ------------------  BOSS 戰鬥結束 把門刪掉
+	local zoneID =  ReadRoleValue(  OwnerID() ,EM_RoleValue_ZoneID);   --------  檢查ZONEID 
+	--Yell(TargetID() ,"meeeeeeeeeeeeee")
+	SetModeEx( OwnerID() , EM_SetModeType_Searchenemy, false) ;---索敵
+	Addbuff( OwnerID() , OwnerID() ,30006366 ,1 ,-1);
+	ai_70000786_LightDance_table();
+end

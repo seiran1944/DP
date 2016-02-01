@@ -1,0 +1,537 @@
+--------------------for NPC 10010131
+--author : K.J. Aris
+--version : 13.09.04.11.18
+
+--foot print 	--凡走過必留下痕跡	130914	K.J. Aris
+--R:\resource\environment\009_aluntia\prop\missions_objects	--祭壇石柱3D檔
+--註 : 施工時  有發生  祭壇石柱  顯示不正確(坍塌高度不正確 or 一半不見)    為  物件更新有問題	(已確認最新版的沒有問題)
+--解決方式 : 刪除	R:\resource\	內 atlas.rac 與 atlas_ros.rac  (不需再更新SVN 僅刪除)
+--實際輸出是否會有問題待測	130916
+
+
+function AI_70000811_Pansuo_Init()
+	--SetModeEx( OwnerID() , EM_SetModeType_Revive , false );----make it not revivable	--正式使用時請打開
+	
+	Lua_MoveToFlag( OwnerID() , 45001257 , 0 , 1 );--reposition , just in case
+
+	WriteRoleValue( OwnerID() , EM_RoleValue_Register, 0 );--Fighting Phase recorder
+	WriteRoleValue( OwnerID() , EM_RoleValue_Register+1 , 4 );--Pagoda Counter
+	
+	--variables
+	local _HpRatioForFullHeal = 0.7; -- 火焰狂熱 施展的HP比例-- below this ratio of HP , boss would try to make himself full healed.
+	local _HpRatioForHealing = 0.2; -- 癒合禱言 提高施展率的HP比例 -- 
+	--variables
+
+-- 技能表
+	local ai_EventInfos = {};
+
+--[[ 通用 ]]--
+-- 通常移動
+	ai_EventInfos["通常移動"] =
+	{
+		OnInit = function(owner,data,group,cooldown)
+			data.group = group;
+			data.cooldown = cooldown or 0;
+		end,
+		OnCelPriority = function(owner,data)
+					
+			data.target = owner.hateList[1];
+			if( not data.target  )then
+				return 0;
+			end
+
+			if ( GetDistanceEX( owner:GUID(), data.target:GUID() ) > 60 ) then
+				return 40 + Rand( 30 );
+			end
+
+			return 0;
+		end,
+		OnExecute = function(owner,data)
+		-- lock on target			
+			if( not data.target )then
+				return 0;
+			end			
+
+			--owner:Yell( "Moving" );			
+			ai_RotateToTarget( owner, data.target );
+
+			local dis = GetDistanceEX( owner:GUID(), data.target:GUID() );
+			if ( dis > 30 ) then
+				if ( ai_SetAttack( owner, data.target ) ) then
+					ai_MoveToTarget( owner, 15 );
+				end
+			elseif( dis > 10 ) then
+				if ( ai_SetAttack( owner, data.target ) ) then
+					ai_MoveToTarget( owner, (dis/2) );
+				end
+			end
+		end,
+	}
+
+
+	ai_EventInfos["裂岩衝擊"] =	-- 裂岩衝擊
+	{
+		OnInit = function(owner,data,group,cooldown)
+			data.group = group;
+			data.cooldown = cooldown or 0;
+		end,
+
+		OnCelPriority = function(owner,data)
+
+			data.target = owner.hateList[1];
+			if( not data.target  )then
+				return 0;
+			end
+
+			return Rand( 70 );
+		end,
+
+		OnExecute = function(owner,data)
+		-- 裂岩衝擊
+			if( not data.target  )then
+				return 0;
+			end
+			
+			local check = ai_checkcollideEX( owner:GUID() , 0.5 , 90 , 30 )  ;        ---------                 打線檢查
+			if  check  == false then 		
+				--owner:Yell( "31008982_Rock Cracker_Cancled_Collide" );
+				return 0 ;
+			end
+			
+			local _dis = GetDistanceEX( owner:GUID(), data.target:GUID() );
+			if ( _dis > 50 ) then	--當玩家在傷害範圍內	( 爆炸移動距離75 )
+				--owner:Yell( "31008982_Rock Cracker" );
+				Castspell( owner:GUID(), data.target:GUID(), 31008982, 0 );	-- 裂岩衝擊
+				Sleep( 21 );
+			else
+				--owner:Yell( "31008982_Rock Cracker_Canceled_Too Near" );
+				return;
+			end
+	
+		end,
+	}
+
+-- 烈燄風暴
+	ai_EventInfos["烈燄風暴"] =	-- 烈燄風暴
+	{
+		OnInit = function(owner,data,group,cooldown)
+			data.group = group;
+			data.cooldown = cooldown or 0;
+		end,
+
+		OnCelPriority = function(owner,data)
+			
+			data.target = owner.hateList[1];
+			if( not data.target  )then
+				return 0;
+			end
+
+			return Rand( 50 );
+		end,
+
+		OnExecute = function(owner,data)
+		-- 烈燄風暴
+			if( not data.target  )then
+				return 0;
+			end
+
+--			if ( GetDistanceEX( owner:GUID(), data.target:GUID() ) < 70 ) then
+--				return 0;
+--			end
+			--owner:Yell( "31008986_Fire Storm" );
+			Castspell( owner:GUID(), data.target:GUID(), 31008986, 0 );	-- 烈燄風暴
+			ai_WaitSpellEnd( owner, 2 );
+			Sleep( 27 );
+		end,
+	}
+
+-- 致死打擊
+	ai_EventInfos["致死打擊"] =	--致死打擊
+	{
+		OnInit = function(owner,data,group,cooldown)
+			data.group = group;
+			data.cooldown = cooldown or 0;
+			data.cooldownTimer = 5;
+		end,
+		OnCelPriority = function(owner,data)
+
+			data.target = owner.hateList[1];
+
+			if( not data.target  )then
+				return 0;
+			end	
+	
+			return Rand( 50 );
+		end,
+		OnExecute = function(owner,data)
+		-- 致死打擊
+			if( not data.target  )then
+				return 0;
+			end
+
+			--owner:Yell( "31008981_Want you die" );
+			Castspell( owner:GUID(), data.target:GUID(), 31008981, 0 );	-- 致死打擊
+
+			ai_WaitSpellEnd( owner, 10 );
+
+		end,
+	}
+
+-- 炎爆術
+	ai_EventInfos["炎爆術"] =	-- 炎爆術
+	{
+		OnInit = function(owner,data,group,cooldown)
+			data.group = group;
+			data.cooldown = cooldown or 0;
+			data.cooldownTimer = 10;
+		end,
+		OnCelPriority = function(owner,data)
+					
+			data.target = owner.hateList[1];
+
+			if( not data.target  )then
+				return 0;
+			end
+			
+			return Rand( 50 );
+		end,
+		OnExecute = function(owner,data)
+
+			if( not data.target  )then
+				return 0;
+			end
+			--owner:Yell( "31008984_Explode" );
+			Castspell( owner:GUID(), data.target:GUID(), 31008984, 0 );	-- 炎爆術
+			ai_WaitSpellEnd( owner, 5 );
+		end,
+	}
+
+
+-- 火焰衝擊
+	ai_EventInfos["火焰衝擊"] =	-- 火焰衝擊
+	{
+		OnInit = function(owner,data,group,cooldown)
+			data.group = group;
+			data.cooldown = cooldown or 0;
+			data.cooldownTimer = 30;
+		end,
+		OnCelPriority = function(owner,data)
+					
+			data.target = owner.hateList[1];
+
+			if( not data.target  )then
+				return 0;
+			end
+			
+			return Rand( 50 );
+		end,
+		OnExecute = function(owner,data)
+
+			if( not data.target  )then
+				return 0;
+			end
+			
+			local check = ai_checkcollideEX( owner:GUID() , 0.5 , 90 , 30 )  ;        ---------                 打線檢查
+			if  check  == false then 		
+				--owner:Yell( "31008983_Rush_Cancled" );
+				return 0 ;
+			end
+			
+			--owner:Yell( "31008983_Rush" );
+			Castspell( owner:GUID(), data.target:GUID(), 31008983, 0 );	-- 火焰衝擊
+			ai_WaitSpellEnd( owner, 5 );
+		end,
+	}
+
+-- 火焰之雨
+	ai_EventInfos["火焰之雨"] =	-- 火焰之雨
+	{
+		OnInit = function(owner,data,group,cooldown)
+			data.group = group;
+			data.cooldown = cooldown or 0;
+			data.cooldownTimer = 10;
+		end,
+		OnCelPriority = function(owner,data)
+					
+			data.target = owner.hateList[1];
+
+			if( not data.target  )then
+				return 0;
+			end
+			
+			return Rand( 70 );
+		end,
+		OnExecute = function(owner,data)
+			-- 火焰之雨
+			if( not data.target  )then
+				return 0;
+			end
+
+			local _dis = GetDistanceEX( owner:GUID(), data.target:GUID() );
+			if ( _dis > 50 ) then	--當玩家在傷害範圍內	( 爆炸移動距離75 )
+				--owner:Yell( "31008985_Rain of flames" );
+				Castspell( owner:GUID() , data.target:GUID() , 31008985 , 0 );	-- 火焰之雨
+				ai_WaitSpellEnd( owner , 5 );
+			else
+				--owner:Yell( "31008985_Rain of flames_Canceled_Too Near" );
+				return;
+			end
+	
+		end,
+	}
+
+-- 權杖掃擊
+	ai_EventInfos["權杖掃擊"] =	-- 權杖掃擊
+	{
+		OnInit = function(owner,data,group,cooldown)
+			data.group = group;
+			data.cooldown = cooldown or 0;
+			data.cooldownTimer = 20;
+		end,
+		OnCelPriority = function(owner,data)
+					
+			data.target = owner.hateList[1];
+
+			if( not data.target  )then
+				return 0;
+			end
+			
+			return Rand( 50 );
+		end,
+		OnExecute = function(owner,data)
+			-- 權杖掃擊
+			if( not data.target  )then
+				return 0;
+			end
+			--owner:Yell( "31008980" );
+			Castspell( owner:GUID() , data.target:GUID() , 31008980 , 0 );	-- 權杖掃擊
+			ai_WaitSpellEnd( owner , 5 );
+		end,
+	}
+
+
+-- 火焰狂熱
+	ai_EventInfos["火焰狂熱"] =	-- 火焰狂熱	--this will heal boss completely.
+	{
+		OnInit = function(owner,data,group,cooldown)
+			data.group = group;
+			data.cooldown = cooldown or 0;
+			data.cooldownTimer = 20;
+		end,
+		OnCelPriority = function(owner,data)
+					
+			data.target = owner.hateList[1];
+
+			if( not data.target  )then
+				return 0;
+			end
+
+			local _HpRatio =  owner:HP()/owner:MaxHP();
+			if( _HpRatio < _HpRatioForFullHeal ) then --_HpRatioForFullHeal seeing variable definition on the head
+				return 200;
+			end	
+			
+			return 0;
+		end,
+		OnExecute = function(owner,data)
+			-- 火焰狂熱
+			if( not data.target  )then
+				return 0;
+			end
+			
+--			AddBuff( owner:GUID() , owner:GUID() , 30000434 , 0 , 100 );--無敵
+			--owner:Yell( "Going Full Heal !!" );
+			CastSpell( owner:GUID() , owner:GUID() , 31009555 , 0 );	--roar
+			ai_WaitSpellEnd( owner, 0 );			
+
+			--owner:Yell( "31008986" );
+			Castspell( owner:GUID(), data.target:GUID(), 31008986, 0 );	-- 烈燄風暴
+			ai_WaitSpellEnd( owner, 0 );
+			
+			Lua_MK_SetPosByFlag( owner:GUID() ,  45001257 , 0 );	--放完後瞬移
+			--owner:Yell( "31008987_Buff" );
+			Lua_WaitToMoveFlag( OwnerID() , 45001257 , 0 , 0 );
+			Castspell( owner:GUID() , owner:GUID() , 31008987, 0 );	-- 火焰狂熱
+			ai_WaitSpellEnd( owner, 5 );
+			Lua_CancelAllBuff( owner:GUID() );
+			--CancelBuff( owner:GUID() , 30000434 );--取消無敵
+		end,
+	}
+
+
+-- 癒合禱言
+	ai_EventInfos["癒合禱言"] =	-- 癒合禱言
+	{
+		OnInit = function(owner,data,group,cooldown)
+			data.group = group;
+			data.cooldown = cooldown or 0;
+			data.cooldownTimer = 20;
+		end,
+		OnCelPriority = function(owner,data)
+					
+			data.target = owner.hateList[1];
+
+			if( not data.target  )then
+				return 0;
+			end		
+						
+			local _randRange = 30;
+			local _HpRatio =  owner:HP()/owner:MaxHP();
+			if( _HpRatio < _HpRatioForHealing ) then
+				_randRange = 120;--double the chance to heal 
+			end
+
+			return Rand( _randRange );
+		end,
+		OnExecute = function(owner,data)
+			-- 癒合禱言
+			if( not data.target  )then
+				return 0;
+			end
+			--owner:Yell( "31008988_Heal" );
+			Castspell( owner:GUID() , owner:GUID() , 31008988, 0 );	-- 癒合禱言
+			ai_WaitSpellEnd( owner, 5 );
+		end,
+	}
+
+-- 心痛痛
+	ai_EventInfos["心痛痛"] =	-- 心痛痛
+	{
+		OnInit = function(owner,data,group,cooldown)
+			data.group = group;
+			data.cooldown = cooldown or 0;
+			data.cooldownTimer = 0;
+		end,
+
+		OnCelPriority = function(owner,data)
+			data.target = owner.hateList[1];
+
+			if( not data.target  )then
+				return 0;
+			end
+			--owner:Yell( "weaking ~~" );
+			return 200;
+		end,
+
+		OnExecute = function(owner,data)
+			-- 心痛痛
+
+			--owner:Yell( "YOOOOOOOO~~~~" );
+			Castspell( owner:GUID() , owner:GUID() , 31009626 , 0 );	-- grieving
+			ai_WaitSpellEnd( owner, 5 );
+			local _PagodaStatus = ReadRoleValue( owner:GUID() , EM_RoleValue_Register+1 );--Check pagoda remnant
+			if( _PagodaStatus > 0 ) then
+				--owner:Yell( "Keep Moving ~~~~" );
+				WriteRoleValue( owner:GUID(), EM_RoleValue_Register, 1 );--when any pagoda still remains , return to phase 1
+			else
+				--owner:Yell( "NO YA ~~~~" );
+				WriteRoleValue( owner:GUID(), EM_RoleValue_Register, 3 );--when there's no any pagoda survived , change to phase 3
+			end
+		end,
+	}
+	
+	
+-- 主迴圈		NPC 10010131
+	function AI_70000811_Pansuo_Engage()
+		--SetModeEx( OwnerID() , EM_SetModeType_Revive , false );--make it not revivable	--正式使用時請打開
+		local owner = ai_CreateOwner( OwnerID() );
+--		owner:SetModeEx( EM_SetModeType_DisableFaceTarget, true );
+		owner:SetModeEx( EM_SetModeType_DiableAIProc , true );
+		ai_ClearEvent( owner );	
+	
+		owner.Phase = -1;	-- drama mode
+  		owner.nowPhase = ReadRoleValue( owner:GUID(), EM_RoleValue_Register );
+
+		
+		local mainProc = function( owner )
+
+			owner.nowPhase = ReadRoleValue( owner:GUID(), EM_RoleValue_Register );
+			if ( owner.Phase ~= owner.nowPhase ) then	-- if phase is different then change skill event combination
+				ai_ClearEvent( owner );
+					--Phase note : --0:Spawn , 1:Ordinary combat , 2:Grieve , 3:Last struggle
+				if ( owner.nowPhase == 0 ) then		-- phase Spawn
+					--
+					owner.Phase = owner.nowPhase;-- synchronize phase stage
+					AI_70000811_Pansuo_Spawn( owner:GUID() );-- plot Spawn
+					WriteRoleValue( owner:GUID(), EM_RoleValue_Register, 1 );	--	goto phase 1 after Spawn plot
+					
+				elseif ( owner.nowPhase == 1 ) then
+
+					owner.Phase = owner.nowPhase;
+					ai_InsertEventEX( owner, "通常移動" , ai_EventInfos["通常移動"] , "Move", 0 );
+					ai_InsertEventEX( owner, "裂岩衝擊" , ai_EventInfos["裂岩衝擊"] , "Melee", 3 );
+					ai_InsertEventEX( owner, "致死打擊" , ai_EventInfos["致死打擊"] , "Melee", 3 );
+					ai_InsertEventEX( owner, "火焰衝擊" , ai_EventInfos["火焰衝擊"] , "Charge", 3 );
+					ai_InsertEventEX( owner, "權杖掃擊" , ai_EventInfos["權杖掃擊"] , "Melee", 3 );
+					ai_InsertEventEX( owner, "炎爆術" , ai_EventInfos["炎爆術"] , "EX_Skill", 3 );
+				 	ai_InsertEventEX( owner, "火焰之雨" , ai_EventInfos["火焰之雨"] , "EX_Skill", 3 );
+					ai_InsertEventEX( owner, "烈燄風暴" , ai_EventInfos["烈燄風暴"] , "EX_Skill", 3 );
+
+					ai_InsertEventEX( owner, "火焰狂熱" , ai_EventInfos["火焰狂熱"] , "EX_Skill", 3 );
+					--ai_InsertEventEX( owner, "癒合禱言" , ai_EventInfos["癒合禱言"] , "EX_Skill", 3 );
+
+				elseif ( owner.nowPhase == 2 ) then--any of pagoda been destroyed
+				
+					owner.Phase = owner.nowPhase;
+					ai_InsertEventEX( owner, "心痛痛" , ai_EventInfos["心痛痛"] , "EX_Skill" , 0 );
+					
+				elseif ( owner.nowPhase == 3 ) then--all of pagodas have been destroyed
+				
+					owner.Phase = owner.nowPhase;
+					ai_InsertEventEX( owner, "通常移動" , ai_EventInfos["通常移動"] , "Move", 0 );
+					ai_InsertEventEX( owner, "致死打擊" , ai_EventInfos["致死打擊"] , "Melee", 1 );
+					ai_InsertEventEX( owner, "權杖掃擊" , ai_EventInfos["權杖掃擊"] , "Melee", 1 );
+				 	ai_InsertEventEX( owner, "火焰之雨" , ai_EventInfos["火焰之雨"] , "EX_Skill", 1 );
+					ai_InsertEventEX( owner, "癒合禱言" , ai_EventInfos["癒合禱言"] , "EX_Skill", 3 );
+					
+ 				end
+			end--if
+		end--mainProc
+		
+    		ai_RunEX( owner , mainProc );	
+    		
+		--owner:Yell( "--End Fight" );
+		Lua_CancelAllBuff( owner:GUID() );		
+
+    		owner:SetModeEx( EM_SetModeType_DisableFaceTarget , false );
+    		owner:SetModeEx( EM_SetModeType_DiableAIProc , false );
+		
+		owner:SetModeEx( EM_SetModeType_Fight , false );
+		owner:SetModeEx( EM_SetModeType_Strikback , false );
+		owner:SetModeEx( EM_SetModeType_Searchenemy , false );
+		Lua_WaitToMoveFlag( owner:GUID() , 45001257 , 0 , 0 );--force him returned , Just in case
+		owner:WriteRoleValue( EM_RoleValue_Register , 0 );	
+		--DebugMsg( 0 , " IsDead : "..owner:IsDead() );
+		if( owner:HP() > 0 ) then--reset all when boss is still alive
+			DebugMsg( 0 , " Reset All " );
+			Castspell( owner:GUID() , owner:GUID() , 31008987, 0 );	-- 火焰狂熱
+			ai_WaitSpellEnd( owner, 5 );
+			Z327_70000809_ResetAllPagodas();--reset all pagodas
+			owner:SetModeEx( EM_SetModeType_Mark , true );
+			owner:SetModeEx( EM_SetModeType_Fight , true );
+			owner:SetModeEx( EM_SetModeType_Strikback , true );
+			owner:SetModeEx( EM_SetModeType_Searchenemy , true );
+		end
+
+	
+	end
+
+end
+
+
+function AI_70000811_Pansuo_Spawn( _TargetID )-- -- plot Spawn
+	SetModeEx( _TargetID , EM_SetModeType_Show , true );
+
+	CastSpell( _TargetID , _TargetID , 31009555 , 0 );
+	Sleep( 30 );
+
+	SetModeEx( _TargetID , EM_SetModeType_Mark , true );
+	SetModeEx( _TargetID , EM_SetModeType_Fight , true );
+	SetModeEx( _TargetID , EM_SetModeType_Strikback , true );
+	SetModeEx( _TargetID , EM_SetModeType_ShowName , true );
+	SetModeEx( _TargetID , EM_SetModeType_ShowRoleHead , true );
+end
+
+function AI_70000811_Pansuo_Death(  )
+	haku_318_Sraredragon_call();
+end
